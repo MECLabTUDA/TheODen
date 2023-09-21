@@ -1,0 +1,6 @@
+partition_folder: # path to folder where the dataset partitions are stored
+model_save_folder: # path to folder where the models should be saved
+
+datasets:
+  DEFAULT: # default folder where the datasets are stored / will be downloaded
+  bcss: # path to folder where the bcss TIF dataset is stored / will be downloaded
