@@ -52,6 +52,9 @@ def decode_token(token: str) -> str:
         UnauthorizedError: If the token is invalid.
     """
     try:
+        if token is None:
+            raise UnauthorizedError("Invalid authentication credentials")
+
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         value = payload.get("sub")
         if value is None:

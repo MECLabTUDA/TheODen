@@ -1,3 +1,5 @@
+import numpy as np
+
 import random
 
 from ....common import Transferable
@@ -16,11 +18,6 @@ class BalancingDistribution(Transferable, is_base_type=True):
 class PercentageBalancing(BalancingDistribution, Transferable):
     def __init__(self, percentage: dict[str | int, float]) -> None:
         self.percentage = percentage
-        # if isinstance(self.percentage, dict):
-        #     print(sum(self.percentage.values()))
-        #     assert (
-        #         sum(self.percentage.values()) == 1
-        #     ), "The sum of the percentages must be 1"
 
     def keys(self, **kwargs) -> list[str | int]:
         return list(self.percentage.keys())
@@ -62,13 +59,7 @@ class EqualBalancing(BalancingDistribution, Transferable):
         self.split_along_key = split_along_key
 
     def keys(self, **kwargs) -> list[int]:
-        return list(
-            range(
-                self.number_of_partitions
-                if self.number_of_partitions is not None
-                else kwargs.get("num_partitions", None)
-            )
-        )
+        return list(range(self.number_of_partitions or kwargs.get("num_partitions")))
 
     def __call__(
         self, partition_indices: dict[str, list[int]], seed: int | None = None, **kwargs
@@ -139,3 +130,34 @@ class KeyBalancing(BalancingDistribution, Transferable):
         self, partition_indices: dict[str, list[int]], seed: int | None = None, **kwargs
     ) -> dict[str, list[str]]:
         return {self.key: partition_indices[self.key]}
+
+
+class LogNormalBalancing(BalancingDistribution, Transferable):
+    def __init__(self, sigma: float, number_of_partitions: int | None = None) -> None:
+        self.sigma = sigma
+        self.number_of_partitions = number_of_partitions
+
+    def keys(self, **kwargs) -> list[str | int]:
+        return list(range(self.number_of_partitions or kwargs.get("num_partitions")))
+
+    def __call__(
+        self, partition_indices: dict[str, list[int]], seed: int | None = None, **kwargs
+    ) -> dict[str, list[str]]:
+        num_samples_per_client = int(len(partition_indices.keys()) / len(self.keys()))
+
+        client_sample_nums = np.random.lognormal(
+            mean=np.log(num_samples_per_client), sigma=self.sigma, size=len(self.keys())
+        )
+        client_sample_nums = (
+            client_sample_nums
+            / np.sum(client_sample_nums)
+            * len(partition_indices.keys())
+        ).astype(int)
+        diff = np.sum(client_sample_nums) - len(partition_indices.keys())  # diff <= 0
+
+        # Add/Subtract the excess number starting from first client
+        if diff != 0:
+            for cid in range(len(self.keys())):
+                if client_sample_nums[cid] > diff:
+                    client_sample_nums[cid] -= diff
+                    break

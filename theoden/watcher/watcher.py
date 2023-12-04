@@ -17,7 +17,7 @@ class Watcher(Transferable, is_base_type=True):
     """Class for watchers. Watchers are used to monitor different aspects of the framework.
 
     They do not interfere in the different processes of the framework like executing commands, handling status updates, etc.. For this, please use the corresponding handlers, hooks and functions.
-    However, they can still act like saving resources, updating monitoring tools, etc..
+    However, they can still act like saving resource_manager, updating monitoring tools, etc..
     """
 
     def __init__(

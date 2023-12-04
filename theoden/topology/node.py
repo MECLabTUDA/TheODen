@@ -1,6 +1,5 @@
 # import torch.multiprocessing as mp
 from multiprocessing import Process, Manager
-from typing import TYPE_CHECKING
 import requests
 import asyncio
 
@@ -9,59 +8,85 @@ from ..common import (
     StatusUpdate,
     ServerRequestError,
     UnauthorizedError,
-    ForbiddenCommandError,
+    ForbiddenOperationError,
 )
-from ..operations import PullCommandRequest, Command
-from ..resources.resource import ResourceRegister
+from ..operations import Command
+from ..resources.resource import ResourceManager
+from ..networking.storage import FileStorageInterface
 from ..networking.rest import RestNodeInterface
-from ..security import CommandWhiteList, CommandBlackList
-
-if TYPE_CHECKING:
-    from ..operations import ServerRequest
+from ..networking.rabbitmq import ClientToMQInterface
+from ..security.operation_protection import OperationWhiteList, OperationBlackList
+from ..operations import ServerRequest
 
 
 class Node:
-    # Define a dictionary to hold waiting times for pop operation
-    # Each key represents a waiting level, and each value represents the corresponding time to wait
-    _WAITING_TIME: dict[int, float] = {0: 0.001, 1: 0.01, 2: 0.05, 3: 0.1, 4: 0.250}
-
     def __init__(
         self,
-        address: str = "localhost",
-        port: int = 8000,
+        communication_address: str = "localhost",
+        communication_port: int | None = None,
+        resource_address: str | None = None,
+        resource_port: int | None = None,
         username: str = "dummy",
         password: str = "dummy",
         ping_interval: float = 1.0,
-        command_protection: CommandWhiteList | CommandBlackList | None = None,
+        rabbitmq: bool = True,
+        ssl: bool = False,
+        operation_protection: OperationWhiteList | OperationBlackList | None = None,
     ) -> None:
         """A federated learning node.
 
         Args:
-            address (str, optional): The address of the server. Defaults to "localhost".
-            port (int, optional): The port of the server. Defaults to 8000.
-            username (str, optional): The username to use for authentication. Defaults to "dummy".
-            password (str, optional): The password to use for authentication. Defaults to "dummy".
-            ping_interval (float, optional): The interval at which to ping the server for new commands. Defaults to 1.0.
-            command_protection (CommandWhiteList | CommandBlackList | None, optional): A whitelist or blacklist of commands to allow or disallow. Defaults to None.
+            communication_address (str): The address of the server.
+            communication_port (int, optional): The port of the server. Defaults to None.
+            resource_address (str, optional): The address of the resource_manager server. Defaults to None.
+            resource_port (int, optional): The port of the resource_manager server. Defaults to None.
+            username (str, optional): The username of the node. Defaults to "dummy".
+            password (str, optional): The password of the node. Defaults to "dummy".
+            ping_interval (float, optional): The interval at which the node will ping the server. Defaults to 1.0.
+            rabbitmq (bool, optional): Whether to use RabbitMQ for communication. Defaults to True.
+            operation_protection (OperationWhiteList | OperationBlackList | None, optional): A list of operations that the node is allowed to execute. Defaults to None.
         """
 
         # Initialize the command queue and resource register as empty dictionaries
         self.uuid: str | None = None
-        self.command_queue: list[dict] = Manager().list([])
-        self.resource_register: ResourceRegister = ResourceRegister()
-        self.resource_register["device"] = "cuda"
-        self.shutdown: bool = False
         self.ping_interval = ping_interval
-        self.command_protection = command_protection
+        self.operation_protection = operation_protection
 
-        # try:
+        # Initialize the command queue as a list. This will hold all the commands that the node has to execute.
+        self.command_queue: list[dict] = Manager().list([])
 
-        self.network_interface = RestNodeInterface(
-            address=address, port=port, username=username, password=password
+        # Initialize the resource register. This will hold all the resource_manager that are required for the commands.
+        self.resources: ResourceManager = ResourceManager(
+            __storage__=FileStorageInterface(
+                username=username,
+                password=password,
+                address=resource_address or communication_address,
+                port=resource_port or 8000,
+            ),
+            device="cuda",
         )
 
-        # except ServerRequestError as e:
-        #     raise RuntimeError(f"Could not connect to server: {e}")
+        # Initialize the network interface
+        if rabbitmq:
+            self.network_interface = ClientToMQInterface(
+                self.command_queue,
+                host=communication_address,
+                port=communication_port or 5672,
+                username=username,
+                password=password,
+            )
+        else:
+            self.network_interface = RestNodeInterface(
+                command_queue=self.command_queue,
+                address=communication_address,
+                port=communication_port or 8000,
+                username=username,
+                password=password,
+                ping_interval=ping_interval,
+                https=ssl,
+            )
+        # Add the storage interface to the network interface
+        self.network_interface.add_storage_interface(self.resources.storage)
 
         # Initialize the processes as an empty list
         self.processes: list[Process] = []
@@ -70,48 +95,34 @@ class Node:
         # Run an async function in an event loop
         asyncio.run(fn())
 
-    def send_status_update(self, status_update: StatusUpdate) -> requests.Response:
-        try:
-            return self.network_interface.send_status_update(status_update)
-        except UnauthorizedError:
-            raise RuntimeError("Could not authenticate with server")
-        except ServerRequestError as e:
-            raise RuntimeError(f"Could not send status update: {e}")
-        except Exception as e:
-            raise RuntimeError(f"Could not send status update: {e}")
-
-    def send_server_request(self, request: "ServerRequest") -> requests.Response:
-        return self.network_interface.send_server_request(request)
-
     def start(self):
         """Start the node.
 
         This method will register the node with the server and start the command queue and serverrequests queue.
         """
 
-        # response = self.send_server_request(RegisterRequest())
-        # self.uuid = response.json()["uuid"]
-
-        # if self.uuid is None:
-        #     raise RuntimeError("Could not register with server")
-
         # Create two separate processes to execute command queue and serverrequests queue
         # target is the function to be called by the process
         # args is the arguments to be passed to the function
 
         try:
-            p1 = Process(target=self._run_node, args=(self.start_command_queue,))
-            p2 = Process(target=self._run_node, args=(self.start_request_loop,))
+            command_process = Process(
+                target=self._run_node, args=(self.start_command_queue,)
+            )
+            request_process = Process(
+                target=self._run_node, args=(self.network_interface.start_request_loop,)
+            )
 
             # Append the processes to the processes list
-            self.processes.extend([p1, p2])
+            self.processes.extend([command_process, request_process])
 
             # Start the processes
-            p1.start()
-            p2.start()
+            command_process.start()
+            request_process.start()
+            self.network_interface.start()
 
-            p1.join()
-            p2.join()
+            command_process.join()
+            request_process.join()
 
         except KeyboardInterrupt:
             self.stop()
@@ -126,70 +137,42 @@ class Node:
         self.processes = []
 
     async def start_command_queue(self) -> None:
-        # Initialize the waiting time as 0
-        waiting_level: int = 0
-
-        # Continue to loop until shutdown is True
-        while not self.shutdown:
+        while True:
             try:
                 # Pop the first command from the command queue
                 command_json = self.command_queue.pop(0)
 
-                command: Command = Transferables().to_object(
-                    command_json, Command, node=self
-                )
+                # Convert the command from json to a Command object
+                command: Command = Transferables().to_object(command_json, Command)
 
                 # Check if the command and all subcommands are allowed
-                if self.command_protection is not None:
+                if self.operation_protection is not None:
                     # get all commands inside the command tree
                     command_tree = command.get_command_tree()
 
                     # check if all commands are allowed
                     for command in command_tree:
-                        if not self.command_protection.allows(command):
-                            raise ForbiddenCommandError(
+                        if not self.operation_protection.allows(command):
+                            raise ForbiddenOperationError(
                                 f"Command {command.__name__} is not allowed"
                             )
 
-                # Execute the command
-                command.execute()
+                # Execute the command on the node
+                command.set_node(self)()
 
-                # Reset the waiting level
-                waiting_level = 0
-
-            # If the command queue is empty, wait for a certain amount of time before trying again
+            # If the command queue is empty, do nothing
             except IndexError:
-                await asyncio.sleep(self._WAITING_TIME[waiting_level])
-                waiting_level = min(4, waiting_level + 1)
+                continue
 
-    async def start_request_loop(self) -> None:
-        # Continue to loop until shutdown is True
-        while not self.shutdown:
-            # Call the _pull method to get a serverrequests from the server
-            self._pull()
-
-            # Wait for 1 second before trying again
-            await asyncio.sleep(self.ping_interval)
-
-    def _process_command(self, command: dict) -> bool:
-        # TODO: Implement command processing logic
-        # Return True if the command was successfully processed, False otherwise
-        if not command:
-            return False
-        return True
-
-    def _pull(self):
-        # Make a GET serverrequests to the server to get the next command
+    def send_status_update(self, status_update: StatusUpdate) -> requests.Response:
         try:
-            response = self.send_server_request(PullCommandRequest(self.uuid))
-
-            # If the response contains a command, parse it into a CommandModel object and add it to the command queue
-            if response.status_code == 200:
-                if self._process_command(response.json()):
-                    # print(len(self.command_queue))
-                    self.command_queue.append(response.json())
+            return self.network_interface.send_status_update(status_update)
+        except UnauthorizedError:
+            raise RuntimeError("Could not authenticate with server")
         except ServerRequestError as e:
-            return
-        except UnauthorizedError as e:
-            print("Unauthorized")
-            # self.network_interface.request_token()
+            raise RuntimeError(f"Could not send status update: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Could not send status update: {e}")
+
+    def send_server_request(self, request: "ServerRequest") -> requests.Response:
+        return self.network_interface.send_server_request(request)

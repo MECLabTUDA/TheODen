@@ -1,6 +1,4 @@
-from typing import Optional
-
-from ....common import ExecutionResponse, Transferable
+from ....common import Transferable
 from ....resources.data import DataSampler
 from .set_resource import SetResourceCommand
 
@@ -11,7 +9,6 @@ class SetDataSamplerCommand(SetResourceCommand, Transferable):
         datasampler: DataSampler,
         dataset: str = "dataset:train_sampler",
         *,
-        node: Optional["Node"] = None,
         uuid: str | None = None,
         **kwargs,
     ) -> None:
@@ -20,7 +17,6 @@ class SetDataSamplerCommand(SetResourceCommand, Transferable):
             resource=datasampler,
             overwrite=True,
             unpack_dict=False,
-            node=node,
             uuid=uuid,
             **kwargs,
         )

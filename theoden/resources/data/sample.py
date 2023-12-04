@@ -57,6 +57,11 @@ class Sample(dict):
     def __contains__(self, item: str):
         return item in self.keys()
 
+    def __repr__(self) -> str:
+        # datatypes for each key, metatdat
+        types = {k: type(v) for k, v in self.items()}
+        return f"Sample({types}, {self.metadata})"
+
 
 class Batch(Sample):
     def __init__(

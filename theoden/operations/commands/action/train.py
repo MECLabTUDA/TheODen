@@ -1,8 +1,6 @@
 import torch
 import tqdm
 
-from typing import Tuple, List, Type, Optional
-
 from theoden.resources import (
     Loss,
     SampleDataset,
@@ -16,7 +14,9 @@ from theoden.operations.commands import Command
 from theoden.common import Transferable, MetricResponse
 
 
-class TrainEpochCommand(Command, Transferable):
+class TrainRoundCommand(Command, Transferable):
+    """Command to train a model on a dataset split."""
+
     def __init__(
         self,
         *,
@@ -27,11 +27,23 @@ class TrainEpochCommand(Command, Transferable):
         label_key: str = "class_label",
         batch_size: int = 32,
         num_workers: int = 6,
-        node: Optional["Node"] = None,
-        uuid: Optional[str] = None,
+        uuid: str | None = None,
         **kwargs,
     ) -> None:
-        super().__init__(node=node, uuid=uuid, **kwargs)
+        """Command to train a model on a dataset.
+
+        Args:
+            communication_round (int | None, optional): The communication round of the command. Defaults to None.
+            num_epochs (int | None, optional): The number of epochs to train. Defaults to None.
+            num_steps (int | None, optional): The number of steps to train. Defaults to None.
+            model_key (str, optional): The key of the model to use for training. Defaults to "model".
+            label_key (str, optional): The key of the label to use for training. Defaults to "class_label".
+            batch_size (int, optional): The batch size to use for training. Defaults to 32.
+            num_workers (int, optional): The number of workers to use for training. Defaults to 6.
+            uuid (str | None, optional): The uuid of the command. Defaults to None.
+        """
+
+        super().__init__(uuid=uuid, **kwargs)
         self.communication_round = communication_round
         self.num_epochs = num_epochs
         self.num_steps = num_steps
@@ -50,17 +62,17 @@ class TrainEpochCommand(Command, Transferable):
             )
 
     def execute(self) -> MetricResponse:
-        # gather all required resources from the node
-        model = self.node_rr.gr(self.model_key, Model)
-        scheduler = self.node_rr.gr("scheduler", LRScheduler)
-        losses = self.node_rr.gr("losses", list[Loss])
-        device = self.node_rr.gr("device", str)
-        optimizer = self.node_rr.gr("optimizer", Optimizer)
-        dataset = self.node_rr.gr("dataset:train", SampleDataset)
+        # gather all required resource_manager from the node
+        model = self.node_rm.gr(self.model_key, Model)
+        scheduler = self.node_rm.gr("scheduler", LRScheduler)
+        losses = self.node_rm.gr("losses", list[Loss])
+        device = self.node_rm.gr("device", str)
+        optimizer = self.node_rm.gr("optimizer", Optimizer)
+        dataset = self.node_rm.gr("dataset:train", SampleDataset)
 
-        clipper = self.node_rr.gr("clipper", assert_type=GradientClipper, default=None)
+        clipper = self.node_rm.gr("clipper", assert_type=GradientClipper, default=None)
 
-        sampler = self.node_rr.gr(
+        sampler = self.node_rm.gr(
             "dataset:train_sampler", assert_type=DataSampler, default=None
         )
 
@@ -137,8 +149,6 @@ class TrainEpochCommand(Command, Transferable):
                     break
 
         optimizer.zero_grad()
-
-        # torch.cuda.empty_cache()
 
         if scheduler is not None:
             scheduler.step()

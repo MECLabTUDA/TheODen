@@ -3,7 +3,7 @@ class UnauthorizedError(Exception):
         self.message = message
 
 
-class ForbiddenCommandError(Exception):
+class ForbiddenOperationError(Exception):
     def __init__(self, message="Forbidden"):
         self.message = message
 
@@ -40,4 +40,9 @@ class NotImplementedAbstractCommandError(Exception):
 
 class ServerRequestError(Exception):
     def __init__(self, message="Server Request Error"):
+        self.message = message
+
+
+class AggregationError(Exception):
+    def __init__(self, message="Aggregation Error"):
         self.message = message

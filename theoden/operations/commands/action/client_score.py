@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from theoden.common import ExecutionResponse
-from theoden.resources import ResourceRegister
-from theoden.topology import TopologyRegister
+from theoden.resources import ResourceManager
+from theoden.topology import Topology
 from ..command import Command
 from ....common import ClientScoreResponse, Transferable
 from ....resources import SampleDataset
@@ -24,7 +22,7 @@ class DatasetLengthScore(ClientScore):
     def calculate_client_score(
         self, command: CalculateClientScoreCommand
     ) -> float | int:
-        return len(command.node_rr.gr(self.dataset_key, SampleDataset))
+        return len(command.node_rm.gr(self.dataset_key, SampleDataset))
 
 
 class CalculateClientScoreCommand(Command):
@@ -32,27 +30,26 @@ class CalculateClientScoreCommand(Command):
         self,
         client_score: ClientScore,
         *,
-        node: Optional["Node"] = None,
         uuid: str | None = None,
         **kwargs,
     ) -> None:
-        super().__init__(node=node, uuid=uuid, **kwargs)
+        super().__init__(uuid=uuid, **kwargs)
         self.client_score = client_score
 
     def on_client_finish_server_side(
         self,
-        topology_register: TopologyRegister,
-        resource_register: ResourceRegister,
-        node_uuid: str,
+        topology: Topology,
+        resource_manager: ResourceManager,
+        node_name: str,
         execution_response: ExecutionResponse,
         instruction_uuid: str,
     ):
-        topology_register.nodes[node_uuid][
+        topology.nodes[node_name].data[
             execution_response.get_data()["score_type"]
         ] = execution_response.get_data()["score"]
 
         print(
-            f"Client {node_uuid} has a score of {execution_response.get_data()['score']} ({execution_response.get_data()['score_type']})"
+            f"Client {node_name} has a score of {execution_response.get_data()['score']} ({execution_response.get_data()['score_type']})"
         )
 
     def execute(self) -> ClientScoreResponse:

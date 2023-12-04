@@ -1,11 +1,13 @@
-from typing import TYPE_CHECKING, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from uuid import uuid4
 from abc import ABC, abstractmethod
 
-from ...common import Transferable
-from ...topology import TopologyRegister
-from ...resources import ResourceRegister
+from ...common import Transferable, ExecutionResponse
+from ...topology import Topology
+from ...resources import ResourceManager
 
 if TYPE_CHECKING:
     from theoden.topology.server import Server
@@ -15,41 +17,53 @@ class ServerRequest(ABC, Transferable, is_base_type=True):
     def __init__(
         self,
         uuid: None | str = None,
-        server: Optional["Server"] = None,
-        node_uuid: str | None = None,
-        **kwargs
+        node_name: str | None = None,
+        **kwargs,
     ):
         """A request to the server.
 
         Args:
             uuid (None | str, optional): The uuid of the request. Defaults to None.
             server (Optional["Server"], optional): The server to pull the command from. Defaults to None. It will be set by the server when the request is processed.
-            node_uuid (str | None, optional): The uuid of the node that sent the request. Defaults to None. It will be set by the server when the request is processed.
+            node_name (str | None, optional): The uuid of the node that sent the request. Defaults to None. It will be set by the server when the request is processed.
         """
         self.uuid = uuid
         if self.uuid is None:
             self.uuid = str(uuid4())
+            self.add_initialization_parameter(uuid=self.uuid)
+        self.server: "Server" | None = None
+        self.node_name = node_name
+
+    def set_server(self, server: "Server") -> ServerRequest:
+        """Sets the server.
+
+        Args:
+            server ("Server"): The server to set.
+
+        Returns:
+            ServerRequest: The request.
+        """
         self.server = server
-        self.node_uuid = node_uuid
+        return self
 
     @property
-    def server_rr(self) -> ResourceRegister:
+    def server_rr(self) -> ResourceManager:
         """The server's resource register.
 
         Returns:
-            ResourceRegister: The server's resource register.
+            ResourceManager: The server's resource register.
         """
-        return self.server.resource_register
+        return self.server.resources
 
     @property
-    def server_tr(self) -> TopologyRegister:
+    def server_tr(self) -> Topology:
         """The server's topology register.
 
         Returns:
-            TopologyRegister: The server's topology register.
+            Topology: The server's topology register.
         """
-        return self.server.topology_register
+        return self.server.topology
 
     @abstractmethod
-    def execute(self):
+    def execute(self) -> ExecutionResponse | None:
         raise NotImplementedError("Please implement this method")

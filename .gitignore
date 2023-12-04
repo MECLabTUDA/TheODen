@@ -166,7 +166,9 @@ cython_debug/
 .aim/
 
 exp/
+cert/
 
 global_context.yaml
 topology.yaml
+users.yaml
 plots.ipynb

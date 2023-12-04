@@ -1,5 +1,6 @@
 from .data import *
 from .training import *
-from .resource import ResourceRegister, is_instance_of_type_hint
+from .resource import ResourceManager, is_instance_of_type_hint
+from .transfer import *
 
 # from .meta import *

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+import logging
 
 from .notifications import WatcherNotification
 from .watcher import Watcher
@@ -58,7 +59,12 @@ class WatcherPool:
             WatcherPool: The watcher pool
         """
         for watcher in self.watchers:
-            watcher.listen(notification, origin=origin)
+            try:
+                watcher.listen(notification, origin=origin)
+            except Exception as e:
+                logging.warning(
+                    f"Exception while notifying watcher {type(watcher).__name__}: {e}"
+                )
         return self
 
     def notify_of_type(
@@ -78,5 +84,10 @@ class WatcherPool:
         """
         for watcher in self.watchers:
             if isinstance(watcher, of_type):
-                watcher.listen(notification, origin=origin)
+                try:
+                    watcher.listen(notification, origin=origin)
+                except Exception as e:
+                    logging.warning(
+                        f"Exception while notifying watcher {type(watcher).__name__}: {e}"
+                    )
         return self

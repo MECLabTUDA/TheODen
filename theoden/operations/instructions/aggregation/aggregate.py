@@ -1,16 +1,14 @@
+import numpy as np
 import torch
 
 from abc import ABC, abstractmethod
 
-from ....topology import TopologyRegister
-from ....resources import ResourceRegister
+from ....topology import Topology
+from ....resources import ResourceManager
 from ....resources.meta import CheckpointManager, DictCheckpoint
-from ...commands import (
-    Command,
-    SendModelToServerCommand,
-    SendOptimizerToServerCommand,
-)
+from ...commands import Command, SendModelToServerCommand, SendOptimizerToServerCommand
 from ....common import Transferable
+from .. import Action, Instruction
 
 
 class Aggregator(ABC, Transferable, is_base_type=True):
@@ -21,33 +19,12 @@ class Aggregator(ABC, Transferable, is_base_type=True):
         client_score: type | None = None,
         **kwargs,
     ):
-        self.models_dicts: dict[str, dict] = {}
         self.model_key = model_key
         self.optimizer_key = optimizer_key
-        self.resources = CheckpointManager()
         self.client_score = client_score
 
-    def process_resource(
-        self, resource_type: str, resource_name: str, node_uuid: str, resource: any
-    ) -> None:
-        """Process a resource that is received from a node.
-
-        Args:
-            resource_type (str): The type of the resource.
-            resource_name (str): The name of the resource.
-            node_uuid (str): The uuid of the node that sent the resource.
-            resource (any): The resource that was sent.
-        """
-
-        self.resources.register_checkpoint(
-            resource_type=resource_type,
-            resource_key=resource_name,
-            checkpoint_key=node_uuid,
-            checkpoint=DictCheckpoint(resource),
-        )
-
     def distribute_commands(
-        self, topology_register: TopologyRegister, resource_register: ResourceRegister
+        self, topology: Topology, resource_manager: ResourceManager
     ) -> list[Command]:
         """Returns a list of commands that are required to distribute the models.
 
@@ -55,16 +32,14 @@ class Aggregator(ABC, Transferable, is_base_type=True):
         that should be updated after a communication round should be returned here.
 
         Args:
-            topology_register (TopologyRegister): The topology register.
-            resource_register (ResourceRegister): The resource register.
+            topology (Topology): The topology register.
+            resource_manager (ResourceManager): The resource register.
 
         Returns:
             list[Command]: A list of commands that are required to distribute the models.
         """
 
-        return self._get_checkpoint_manager(
-            resource_register
-        ).get_global_checkpoints_commands(
+        return resource_manager.checkpoint_manager.get_global_checkpoints_commands(
             of_resource_type=["model", "optimizer"] if self.optimizer_key else ["model"]
         )
 
@@ -88,9 +63,7 @@ class Aggregator(ABC, Transferable, is_base_type=True):
         )
 
     def _calculate_pseudo_gradients(
-        self,
-        resources: dict[str, DictCheckpoint],
-        global_model: dict[str, any],
+        self, resources: dict[str, DictCheckpoint], global_model: dict[str, any]
     ) -> dict[str, dict[str, any]]:
         # create pseudo gradient dict
         pseudo_gradients = {}
@@ -107,7 +80,7 @@ class Aggregator(ABC, Transferable, is_base_type=True):
 
                 # calculate pseudo gradient
                 pseudo_gradients[resource_key][parameter_key] = (
-                    parameter.cpu() - global_parameter.cpu()
+                    parameter - global_parameter
                 )
 
         # return pseudo gradient
@@ -123,7 +96,7 @@ class Aggregator(ABC, Transferable, is_base_type=True):
                 )
             return result_dict
 
-        elif isinstance(state_dicts[0], torch.Tensor):
+        elif isinstance(state_dicts[0], torch.Tensor | np.ndarray):
             total_weight = sum(weights)
             total_value = sum(
                 weight * value for weight, value in zip(weights, state_dicts)
@@ -138,18 +111,16 @@ class Aggregator(ABC, Transferable, is_base_type=True):
             )
 
     def _get_weights(
-        self, topology_register: TopologyRegister, resource_register: ResourceRegister
+        self, topology: Topology, resource_manager: ResourceManager
     ) -> dict[str, float]:
         # get weights from topology register
         if self.client_score is None:
-            scores = {
-                node.uuid: 1 for node in topology_register.get_connected_nodes(False)
-            }
+            scores = {node.name: 1 for node in topology.online_clients()}
         else:
             try:
                 scores = {
-                    node.uuid: node[self.client_score.__name__]
-                    for node in topology_register.get_connected_nodes(False)
+                    node.name: node.data[self.client_score.__name__]
+                    for node in topology.online_clients(False)
                 }
             except KeyError:
                 raise KeyError(
@@ -160,22 +131,9 @@ class Aggregator(ABC, Transferable, is_base_type=True):
         # normalize weights
         total_score = sum(scores.values())
         weights = {
-            node_uuid: score / total_score for node_uuid, score in scores.items()
+            node_name: score / total_score for node_name, score in scores.items()
         }
         return weights
-
-    def _get_checkpoint_manager(
-        self, resource_register: ResourceRegister
-    ) -> CheckpointManager:
-        # get checkpoint manager from resource register
-        try:
-            cm = resource_register.gr("__checkpoints__", assert_type=CheckpointManager)
-        except KeyError:
-            raise KeyError(
-                f"Checkpoint manager not found in resource register. "
-                f"Please check that the checkpoint manager is requested."
-            )
-        return cm
 
     @abstractmethod
     def aggregate(
@@ -183,9 +141,74 @@ class Aggregator(ABC, Transferable, is_base_type=True):
         resource_type: str,
         resource_key: str,
         resources: dict[str, DictCheckpoint],
-        topology_register: TopologyRegister,
-        resource_register: ResourceRegister,
+        topology: Topology,
+        resource_manager: ResourceManager,
     ) -> any:
         raise NotImplementedError(
             "Please implement this method for your aggregation method."
         )
+
+
+class AggregationAction(Action, Transferable):
+    def __init__(
+        self,
+        aggregator: Aggregator,
+        _no_aggregation: bool = False,
+        predecessor: Instruction | None = None,
+        remove_instruction_resource_entry: bool = True,
+        **kwargs,
+    ) -> None:
+        super().__init__(predecessor, remove_instruction_resource_entry, **kwargs)
+        self.aggregator = aggregator
+        self._no_aggregation = _no_aggregation
+
+    def perform(
+        self, topology: Topology, resource_manager: ResourceManager
+    ) -> Instruction | None:
+        """Aggregates the models and optimizers on the server.
+
+        Args:
+            topology (Topology): The topology register.
+            resource_manager (ResourceManager): The resource register.
+
+        Returns:
+            Instruction | None: The instruction that should be executed after the aggregation.
+        """
+
+        # if no aggregation is required, return None. This is mainly the case when training on a single node
+        if self._no_aggregation:
+            return None
+
+        # use the client checkpoints to aggregate the models / optimizers
+        client_checkpoints = resource_manager.client_checkpoints
+
+        for resource_type, resources in client_checkpoints.items():
+            for resource_key, resource in resources.items():
+                # get global model from checkpoint manager
+
+                cm = resource_manager.checkpoint_manager
+
+                # aggregate resource_manager using the aggregators aggregate method
+                aggregated = self.aggregator.aggregate(
+                    resource_type=resource_type,
+                    resource_key=resource_key,
+                    resources=resource,
+                    topology=topology,
+                    resource_manager=resource_manager,
+                )
+
+                # save aggregated resource_manager in checkpoint manager
+                cm.register_checkpoint(
+                    resource_type=resource_type,
+                    resource_key=resource_key,
+                    checkpoint_key="__global__",
+                    checkpoint=DictCheckpoint(aggregated),
+                )
+
+        # reset the client checkpoints
+        client_checkpoints.reset()
+
+        # inform the watcher that the aggregation is completed
+        from ....watcher import AggregationCompletedNotification
+
+        resource_manager.watcher.notify_all(AggregationCompletedNotification())

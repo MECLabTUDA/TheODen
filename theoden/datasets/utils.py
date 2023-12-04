@@ -10,7 +10,13 @@ import tifffile as tiff
 import random
 
 
-def read_tif_region(file, from_x=None, to_x=None, from_y=None, to_y=None):
+def read_tif_region(
+    file: str,
+    from_x: int | None = None,
+    to_x: int | None = None,
+    from_y: int | None = None,
+    to_y: int | None = None,
+):
     if from_x == None:
         store = tiff.imread(file, aszarr=True)
         out_labels_slide = zarr.open(store, mode="r")
@@ -28,7 +34,7 @@ def random_crop(img, mask, height, width):
     return (img, mask)
 
 
-def to_tensor(array, mask=False):
+def to_tensor(array, mask: bool = False):
     if not mask:
         return torch.from_numpy(array).permute(2, 0, 1)
     else:

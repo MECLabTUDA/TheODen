@@ -1,47 +1,20 @@
 from __future__ import annotations
 
-from typing import Any, Optional, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from uuid import uuid4
 from abc import ABC, abstractmethod
 
+from ...topology import Topology
+from ...common import Transferable, StatusUpdate, ExecutionResponse
+from ...resources import ResourceManager
+from ..status import CommandExecutionStatus
 
 if TYPE_CHECKING:
     from ...topology.node import Node
-    from .. import StatusTable
-from ...topology import TopologyRegister
-from ..decorators import return_execution_status_and_result
-from ...common import ExecutionResponse, Transferable
-from ...resources import ResourceRegister
+    from .. import DistributionStatusTable
 
 
-class CommandMeta(type):
-    def __new__(cls, name, bases, attrs, **kwargs):
-        """
-        Creates a new CommandMeta object.
-
-        Args:
-            name (str): The name of the class to create.
-            bases (tuple): The base classes of the class to create.
-            attrs (dict): The attributes of the class to create.
-
-        Returns:
-            The new CommandMeta object.
-        """
-        # Wrap the `execute` method with the `return_execution_status()` function
-        if "execute" in attrs and not hasattr(attrs["execute"], "__wrapped__"):
-            attrs["execute"] = return_execution_status_and_result(attrs["execute"])
-
-        for meth_name, meth in cls.__class__.__dict__.items():
-            if getattr(meth, "__isabstractmethod__", False):
-                raise TypeError(
-                    f"Can't create new class {name} with no abstract classmethod {meth_name} redefined in the metaclass"
-                )
-
-        # Create the new CommandMeta object
-        return super().__new__(cls, name, bases, attrs, **kwargs)
-
-
-class Command(Transferable, is_base_type=True, metaclass=CommandMeta):
+class Command(Transferable, is_base_type=True):
     """
     The Command interface declares a method for executing a command.
     """
@@ -49,12 +22,11 @@ class Command(Transferable, is_base_type=True, metaclass=CommandMeta):
     def __init__(
         self,
         *,
-        node: Optional["Node"] = None,
-        uuid: Optional[str] = None,
+        uuid: str | None = None,
         **kwargs,
     ) -> None:
-        self.set_node(node)
         self.uuid = uuid
+        self.node: "Node" | None = None
 
     def init_uuid(self) -> Command:
         """
@@ -94,16 +66,16 @@ class Command(Transferable, is_base_type=True, metaclass=CommandMeta):
         return self
 
     @property
-    def node_rr(self) -> ResourceRegister:
+    def node_rm(self) -> ResourceManager:
         """
-        Returns the ResourceRegister of the node attribute of the Command object.
+        Returns the ResourceManager of the node attribute of the Command object.
 
         Returns:
-            The ResourceRegister of the node attribute of the Command object.
+            The ResourceManager of the node attribute of the Command object.
         """
-        return self.node.resource_register
+        return self.node.resources
 
-    def get_command_tree(self, flatten: bool = True) -> Dict[str, Command]:
+    def get_command_tree(self, flatten: bool = True) -> dict[str, Command]:
         """
         Returns a nested dictionary representing the Command object and all its subcommands.
 
@@ -146,24 +118,16 @@ class Command(Transferable, is_base_type=True, metaclass=CommandMeta):
         # Return the dictionary representing the Command object and all its subcommands
         return commands
 
-    @abstractmethod
-    def execute(self) -> ExecutionResponse | None:
-        """Abstract execute command that is called to perform the actions specific to the command
-
-        Returns
-        -------
-        Any
-            Different returns possible
-
-        Raises
-        ------
-        NotImplementedError
-            This method has to be implemented in order to have a functioning command
-        """
-        raise NotImplementedError("Please Implement this method")
+    def on_init_server_side(
+        self,
+        topology: Topology,
+        resource_manager: ResourceManager,
+        selected_nodes: list[str],
+    ) -> None:
+        pass
 
     def node_specific_modification(
-        self, status_register: dict[str, "StatusTable"], node_uuid: str
+        self, distribution_table: "DistributionStatusTable", node_name: str
     ) -> Command:
         """
         This method is called on the server to modify the command to be executed on the clients. It is used to add node specific information to the command after initialization.
@@ -171,28 +135,77 @@ class Command(Transferable, is_base_type=True, metaclass=CommandMeta):
 
         Args:
             status_register (dict): The dictionary of all the commands in the instruction and their status.
-            node_uuid (str): The uuid of the node the command is executed on.
+            node_name (str): The uuid of the node the command is executed on.
 
         Returns:
             The modified command.
         """
         return self
 
+    @abstractmethod
+    def execute(self) -> ExecutionResponse | None:
+        """Abstract execute command that is called to perform the actions specific to the command
+
+        Returns:
+            ExecutionResponse | None: The response of the execution.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+        raise NotImplementedError("Please Implement this method")
+
+    def __call__(self, *args, **kwargs):
+        self.node.send_status_update(
+            StatusUpdate(
+                node_name=None,
+                command_uuid=self.uuid,
+                status=CommandExecutionStatus.STARTED,
+                datatype=type(self).__name__,
+            )
+        )
+
+        try:
+            # Call the original function
+            result: ExecutionResponse | None = self.execute()
+        except Exception as e:
+            # Send a "failed" status update to the server if an exception occurs
+            self.node.send_status_update(
+                StatusUpdate(
+                    node_name=None,
+                    command_uuid=self.uuid,
+                    status=CommandExecutionStatus.FAILED,
+                    datatype=type(self).__name__,
+                )
+            )
+            raise e
+        else:
+            # Send a "finished" status update to the server if the function completes successfully
+            self.node.send_status_update(
+                StatusUpdate(
+                    node_name=None,
+                    command_uuid=self.uuid,
+                    status=CommandExecutionStatus.FINISHED,
+                    datatype=type(self).__name__,
+                    response=result,
+                )
+            )
+            return result
+
     def on_client_finish_server_side(
         self,
-        topology_register: TopologyRegister,
-        resource_register: ResourceRegister,
-        node_uuid: str,
+        topology: Topology,
+        resource_manager: ResourceManager,
+        node_name: str,
         execution_response: ExecutionResponse,
         instruction_uuid: str,
-    ):
+    ) -> None:
         """
         This method is called after the execution of the command is finished.
 
         Args:
-            topology_register (TopologyRegister): The topology register of the instruction.
-            resource_register (ResourceRegister): The resource register of the instruction.
-            node_uuid (str): The uuid of the node the command is executed on.
+            topology (Topology): The topology register of the instruction.
+            resource_manager (ResourceManager): The resource register of the instruction.
+            node_name (str): The uuid of the node the command is executed on.
             execution_response (ExecutionResponse): The response of the execution.
             instruction_uuid (str): The uuid of the instruction.
         """
@@ -200,17 +213,30 @@ class Command(Transferable, is_base_type=True, metaclass=CommandMeta):
 
     def all_clients_finished_server_side(
         self,
-        topology_register: TopologyRegister,
-        resource_register: ResourceRegister,
+        topology: Topology,
+        resource_manager: ResourceManager,
         instruction_uuid: str,
     ) -> None:
         """
         This method is called on the server to check if all clients have finished executing the command.
 
         Args:
-            status_register (dict): The dictionary of all the commands in the instruction and their status.
-
-        Returns:
-            True if all clients have finished executing the command, False otherwise.
+            topology (Topology): The topology register of the node.
+            resource_manager (ResourceManager): The resource register of the node.
+            instruction_uuid (str): The uuid of the instruction.
         """
         pass
+
+    def __add__(self, other: Command) -> Command:
+        """
+        Adds two Command objects together.
+
+        Args:
+            other (Command): The Command object to add to the current Command object.
+
+        Returns:
+            The current Command object with the other Command object added to it.
+        """
+        from . import SequentialCommand
+
+        return SequentialCommand([self, other])

@@ -1,18 +1,18 @@
 from typing import Any, Union, TypeVar
-from ..resource import ResourceRegister
+from ..resource import ResourceManager
 
 T = TypeVar("T")
 
 
-class DataSetComponents(ResourceRegister):
+class DataSetComponents(ResourceManager):
     ...
 
 
-class DataGroup(ResourceRegister):
+class DataGroup(ResourceManager):
     ...
 
 
-class Datastore(ResourceRegister):
+class Datastore(ResourceManager):
     def add_datagroup(self):
         ...
 

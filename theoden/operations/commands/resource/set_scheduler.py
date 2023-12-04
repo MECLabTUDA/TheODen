@@ -1,11 +1,11 @@
-from typing import Optional
-
-from theoden.operations.commands.resource import SetResourceCommand
-from theoden.common import Transferable
-from theoden.resources.training import LRScheduler, Scheduler, Optimizer
+from . import SetResourceCommand
+from ....common import Transferable
+from ....resources.training import LRScheduler, Scheduler, Optimizer
 
 
 class SetLRSchedulerCommand(SetResourceCommand, Transferable):
+    """Set the learning rate scheduler on the node"""
+
     def __init__(
         self,
         scheduler: Scheduler,
@@ -13,23 +13,35 @@ class SetLRSchedulerCommand(SetResourceCommand, Transferable):
         optimizer_key: str = "optimizer",
         overwrite: bool = True,
         *,
-        node: Optional["Node"] = None,
-        uuid: Optional[str] = None,
+        uuid: str | None = None,
         **kwargs,
     ) -> None:
+        """Set the learning rate scheduler on the node
+
+        Args:
+            scheduler (Scheduler): The scheduler to set
+            key (str, optional): The resource key of the scheduler. Defaults to "scheduler".
+            optimizer_key (str, optional): The resource key of the optimizer. Defaults to "optimizer".
+            overwrite (bool, optional): Whether to overwrite the existing scheduler. Defaults to True.
+            uuid (str | None, optional): The uuid of the command. Defaults to None.
+        """
+
         super().__init__(
-            key=key,
-            resource=scheduler,
-            overwrite=overwrite,
-            node=node,
-            uuid=uuid,
-            **kwargs,
+            key=key, resource=scheduler, overwrite=overwrite, uuid=uuid, **kwargs
         )
         self.optimizer_key = optimizer_key
         self.assert_type = LRScheduler
 
     def modify_resource(self, resource: Scheduler) -> LRScheduler:
+        """Build the scheduler
+
+        Args:
+            resource (Scheduler): The scheduler to build (TheODen resource)
+
+        Returns:
+            LRScheduler: The built scheduler (torch.optim.lr_scheduler._LRScheduler)
+        """
         resource = resource.build(
-            self.node_rr.gr(self.optimizer_key, assert_type=Optimizer)
+            self.node_rm.gr(self.optimizer_key, assert_type=Optimizer)
         )
         return resource

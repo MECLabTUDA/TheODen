@@ -1,3 +1,5 @@
+import torch
+
 from typing import List
 import json
 import inspect
@@ -88,3 +90,36 @@ def are_classes_from_same_package(class1: type, class2: type) -> bool:
     module1 = inspect.getmodule(class1)
     module2 = inspect.getmodule(class2)
     return module1.__name__.split(".")[0] == module2.__name__.split(".")[0]
+
+
+def to_list(obj) -> list:
+    """Converts an object to a list.
+
+    Args:
+        obj (any): The object to convert to a list.
+
+    Returns:
+        list: The object converted to a list.
+    """
+    if isinstance(obj, list):
+        return obj
+    else:
+        return [obj]
+
+
+def calculate_min_max_mean_of_state_dict(
+    state_dict: dict[str, any]
+) -> tuple[float, float, float]:
+    """Calculates the minimum, maximum and mean of a state dict.
+
+    Args:
+        state_dict (dict[str, any]): The state dict.
+
+    Returns:
+        tuple[float, float, float]: The minimum, maximum and mean of the state dict.
+    """
+    vals = []
+    for key in state_dict:
+        vals.append(state_dict[key].flatten())
+    test = torch.cat(vals)
+    return torch.min(test).item(), torch.max(test).item(), torch.mean(test).item()

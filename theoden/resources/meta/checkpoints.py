@@ -6,8 +6,7 @@ import io
 from copy import deepcopy
 
 from theoden.operations.commands import Command
-from ..resource import ResourceRegister
-from ...topology.topology_register import TopologyRegister
+from ..resource import ResourceManager
 from ...operations.commands import (
     Command,
     LoadStateDictCommand,
@@ -77,12 +76,12 @@ class BytesCheckpoint(Checkpoint):
             raise ValueError(f"Unsupported datatype {datatype}")
 
 
-class Checkpoints(ResourceRegister):
+class Checkpoints(ResourceManager):
     def register_checkpoint(self, checkpoint_key: str, checkpoint: Checkpoint) -> None:
         self.sr(key=checkpoint_key, resource=checkpoint, assert_type=Checkpoint)
 
 
-class TypedCheckpoints(ResourceRegister[str, Checkpoints]):
+class TypedCheckpoints(ResourceManager[str, Checkpoints]):
     default_subregister_type = Checkpoints
 
     def __init__(self, **kwargs):
@@ -125,7 +124,7 @@ class OptimizerCheckpoints(TypedCheckpoints):
         )
 
 
-class CheckpointManager(ResourceRegister):
+class CheckpointManager(ResourceManager):
     default_subregister_type = TypedCheckpoints
 
     def __init__(self):
@@ -196,17 +195,17 @@ class CheckpointManager(ResourceRegister):
         )
 
         if typed_cp is None:
-            raise ValueError(f"Resource type {resource_type} does not exist.")
+            raise KeyError(f"Resource type {resource_type} does not exist.")
 
         cps = typed_cp.gr(key=resource_key, assert_type=Checkpoints, default=None)
 
         if cps is None:
-            raise ValueError(f"Resource {resource_key} does not exist.")
+            raise KeyError(f"Resource {resource_key} does not exist.")
 
         cp = cps.gr(key=checkpoint_key, assert_type=Checkpoint, default=None)
 
         if cp is None:
-            raise ValueError(f"Checkpoint {checkpoint_key} does not exist.")
+            raise KeyError(f"Checkpoint {checkpoint_key} does not exist.")
 
         return cp
 

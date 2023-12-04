@@ -1,9 +1,9 @@
-from typing import Optional
-
-from theoden.operations.commands.resource import SetResourceCommand
-from theoden.common import ExecutionResponse, Transferable
-from theoden.resources import Loss, ResourceRegister
-from theoden.topology import TopologyRegister
+from theoden.resources import ResourceManager
+from theoden.topology import Topology
+from . import SetResourceCommand
+from ....common import ExecutionResponse, Transferable
+from ....resources import Loss, ResourceManager
+from ....topology import Topology
 
 
 class SetLossesCommand(SetResourceCommand, Transferable):
@@ -13,26 +13,22 @@ class SetLossesCommand(SetResourceCommand, Transferable):
         key: str = "losses",
         overwrite: bool = True,
         *,
-        node: Optional["Node"] = None,
-        uuid: Optional[str] = None,
+        uuid: str | None = None,
         **kwargs,
     ) -> None:
         super().__init__(
             key=key,
             resource=losses,
             overwrite=overwrite,
-            node=node,
             uuid=uuid,
             **kwargs,
         )
         self.assert_type = list[Loss]
 
-    def on_client_finish_server_side(
+    def all_clients_finished_server_side(
         self,
-        topology_register: TopologyRegister,
-        resource_register: ResourceRegister,
-        node_uuid: str,
-        execution_response: ExecutionResponse,
+        topology: Topology,
+        resource_manager: ResourceManager,
         instruction_uuid: str,
-    ):
-        resource_register.sr(key=self.key, resource=self.resource)
+    ) -> None:
+        resource_manager.sr(key=self.key, resource=self.resource)

@@ -1,10 +1,5 @@
-from typing import Optional, Any, Type
-from theoden.common import ExecutionResponse
-
-from theoden.resources import SampleDataset
-from theoden.resources.data import BalancingDistribution, Partition, PercentageBalancing
-
-
+from ....common import ExecutionResponse
+from ....resources import SampleDataset
 from .... import Transferable
 from ....resources.data import (
     PartitionDataset,
@@ -22,17 +17,12 @@ class SetPartitionCommand(Command, Transferable):
         balancing_function: BalancingDistribution | None = None,
         partition_key: str | int | None = None,
         key: str = "dataset",
-        seed: Optional[int] = 42,
+        seed: int = 42,
         *,
-        node: Optional["Node"] = None,
-        uuid: Optional[str] = None,
+        uuid: str | None = None,
         **kwargs,
     ) -> None:
-        super().__init__(
-            node=node,
-            uuid=uuid,
-            **kwargs,
-        )
+        super().__init__(uuid=uuid, **kwargs)
         self.partition_function = partition_function
         self.balancing_function = balancing_function
         self.key = key
@@ -40,11 +30,11 @@ class SetPartitionCommand(Command, Transferable):
         self.kwargs = kwargs
         self.partition_key = partition_key
 
-    def execute(self) -> Any:
-        self.node_rr.sr(
+    def execute(self) -> ExecutionResponse | None:
+        self.node_rm.sr(
             key=self.key,
             resource=PartitionDataset(
-                dataset=self.node_rr.gr(self.key, SampleDataset),
+                dataset=self.node_rm.gr(self.key, SampleDataset),
                 partition_function=self.partition_function,
                 balancing_function=self.balancing_function,
                 partition_key=self.partition_key,
@@ -52,14 +42,14 @@ class SetPartitionCommand(Command, Transferable):
                 **self.kwargs,
             ).init_after_deserialization(),
         )
+        return None
 
     def node_specific_modification(
-        self, status_register: dict[str, "StatusTable"], node_uuid: str
+        self, distribution_table: "DistributionStatusTable", node_name: str
     ) -> Command:
-        table = status_register[self.uuid]
-        included = table.get_included()
+        included = distribution_table.selected
         num_total_nodes = len(included)
-        partition_key = sorted(included).index(node_uuid)
+        partition_key = sorted(included).index(node_name)
 
         self.balancing_function.add_initialization_parameter(
             number_of_partitions=num_total_nodes,
@@ -78,13 +68,12 @@ class SetLocalPartitionCommand(Command, Transferable):
         base_dataset: str = "dataset",
         partition_function: Partition | None = None,
         balancing_function: BalancingDistribution | None = None,
-        seed: Optional[int] = 42,
+        seed: int = 42,
         *,
-        node: Optional["Node"] = None,
         uuid: str | None = None,
         **kwargs,
     ):
-        super().__init__(node=node, uuid=uuid, **kwargs)
+        super().__init__(uuid=uuid, **kwargs)
         self.base_dataset = base_dataset
         self.partition_function = partition_function
         self.balancing_function = balancing_function
@@ -92,10 +81,10 @@ class SetLocalPartitionCommand(Command, Transferable):
 
     def execute(self) -> ExecutionResponse | None:
         # copy base dataset
-        base = self.node_rr.gr(self.base_dataset)
+        base = self.node_rm.gr(self.base_dataset)
 
         for key in self.balancing_function.keys():
-            self.node_rr.sr(
+            self.node_rm.sr(
                 key=f"{self.base_dataset}:{key}",
                 resource=PartitionDataset(
                     dataset=base,
@@ -105,25 +94,3 @@ class SetLocalPartitionCommand(Command, Transferable):
                     seed=self.seed,
                 ).init_after_deserialization(),
             )
-
-
-class SetLocalSplitCommand(SetLocalPartitionCommand, Transferable):
-    def __init__(
-        self,
-        base_dataset: str,
-        partition_function: Partition | None = None,
-        seed: int | None = 42,
-        *,
-        node: Any | None = None,
-        uuid: str | None = None,
-        **kwargs,
-    ):
-        super().__init__(
-            base_dataset,
-            partition_function,
-            PercentageBalancing(kwargs),
-            seed,
-            node=node,
-            uuid=uuid,
-            **kwargs,
-        )

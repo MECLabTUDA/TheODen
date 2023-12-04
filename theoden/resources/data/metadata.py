@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import matplotlib.pyplot as plt
+
 from ...common import Metadata
 
 
@@ -182,6 +184,29 @@ class MetadataBatch:
             m[key][dict_key] = items[i]
 
         return self
+
+    def plot_distribution(
+        self,
+        key: str,
+        bins: int | list[int] = 10,
+        figsize: tuple[float, float] = (8, 6),
+        **kwargs,
+    ) -> plt.Figure:
+        """Plot a histogram of the data
+
+        Args:
+            key (str): The key to plot
+            bins (int | list[int], optional): The number of bins or the bins to use. Defaults to 10.
+            figsize (tuple[float, float], optional): The size of the figure. Defaults to (8, 6).
+
+        Returns:
+            plt.Figure: The figure
+        """
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.hist(self[key], bins=bins, **kwargs)
+        ax.set_xlabel(key)
+        ax.set_ylabel("Count")
+        return fig
 
     def __repr__(self) -> str:
         return f"MetadataBatch({self.batch})"

@@ -1,0 +1,9 @@
+- name: dummy1
+  role: server
+  password: dummy1pw
+- name: dummy2
+  role: client
+  password: dummy2pw
+- name: dummy3
+  role: client
+  password: dummy3pw

@@ -1,8 +1,9 @@
 from ..instruction import Instruction
-from ..instruction_set import InstructionGroup
-from ..aggregation import AggregateInstruction
-from ..distribute import Distributor
-from ..aggregation.aggregator import Aggregator
+from .bundle import InstructionBundle
+from .default_aggregation import DefaultAggregationBundle
+from ..selection import BinarySelector
+from ..distribution import ClosedDistribution
+from ..aggregation.aggregate import Aggregator
 from ...commands import (
     TrainValNTimesCommand,
     ValidateEpochCommand,
@@ -10,21 +11,22 @@ from ...commands import (
     LoadStateDictCommand,
 )
 from ....common import Transferable
+from ....resources import StateLoader
 
 
-class MultiRoundTrainingInstructionGroup(InstructionGroup, Transferable):
+class MultiRoundTrainingInstructionBundle(InstructionBundle, Transferable):
     def __init__(
         self,
         n_rounds: int,
         aggregator: Aggregator,
         epochs_per_round: int | None = None,
         steps_per_round: int | None = None,
-        distributor: Distributor | None = None,
+        selector: BinarySelector | None = None,
         train_batch_size: int = 32,
         validation_batch_size: int = 32,
         num_workers: int = 6,
-        pre_round_operations: list[Instruction | InstructionGroup] | None = None,
-        post_round_operations: list[Instruction | InstructionGroup] | None = None,
+        pre_round_operations: list[Instruction | InstructionBundle] | None = None,
+        post_round_operations: list[Instruction | InstructionBundle] | None = None,
         final_validation: bool = True,
         val_split: str = "val",
         start_at_round: int = 0,
@@ -32,9 +34,10 @@ class MultiRoundTrainingInstructionGroup(InstructionGroup, Transferable):
         end_with_val: bool = False,
         validate_every_n_rounds: int | None = None,
         label_key: str = "class_label",
+        loader: type[StateLoader] | None = None,
         simultaneous_execution: int = 0,
     ) -> None:
-        """The MultiRoundTrainingInstructionGroup is a convenience class for creating a sequence of instructions that train a model for a given number of rounds.
+        """The MultiRoundTrainingInstructionBundle is a convenience class for creating a sequence of instructions that train a model for a given number of rounds.
 
         Args:
             n_rounds (int): The number of rounds to train the model for.
@@ -42,8 +45,8 @@ class MultiRoundTrainingInstructionGroup(InstructionGroup, Transferable):
             epochs_per_round (int, optional): The number of epochs to train the model for in each round. Defaults to None.
             steps_per_round (int, optional): The number of steps to train the model for in each round. Defaults to None.
             distributor (Distributor, optional): The distributor to use for selecting the nodes to train on. Defaults to None.
-            pre_round_operations (list[Instruction | InstructionGroup], optional): A list of instructions to execute before each round. Defaults to None.
-            post_round_operations (list[Instruction | InstructionGroup], optional): A list of instructions to execute after each round. Defaults to None.
+            pre_round_operations (list[Instruction | InstructionBundle], optional): A list of instructions to execute before each round. Defaults to None.
+            post_round_operations (list[Instruction | InstructionBundle], optional): A list of instructions to execute after each round. Defaults to None.
             final_validation (bool, optional): Whether to perform a final validation on the test set after training. Defaults to True.
             val_split (str, optional): The split to use for validation. Defaults to "val".
             start_at_round (int, optional): The round to start at. Defaults to 0.
@@ -62,9 +65,9 @@ class MultiRoundTrainingInstructionGroup(InstructionGroup, Transferable):
                 for sublist in [
                     [
                         *(pre_round_operations if pre_round_operations else []),
-                        AggregateInstruction(
-                            distributor=distributor,
-                            wrapped_object=TrainValNTimesCommand(
+                        DefaultAggregationBundle(
+                            selector=selector,
+                            train_command=TrainValNTimesCommand(
                                 n_epochs=epochs_per_round,
                                 n_steps=steps_per_round,
                                 val_split=val_split,
@@ -82,6 +85,7 @@ class MultiRoundTrainingInstructionGroup(InstructionGroup, Transferable):
                             ),
                             aggregator=aggregator,
                             simultaneous_execution=simultaneous_execution,
+                            loader=loader,
                         ),
                         *(post_round_operations if post_round_operations else []),
                     ]
@@ -90,7 +94,7 @@ class MultiRoundTrainingInstructionGroup(InstructionGroup, Transferable):
                 for item in sublist
             ]
             + [
-                Instruction(
+                ClosedDistribution(
                     SequentialCommand(
                         [
                             LoadStateDictCommand(
@@ -98,6 +102,7 @@ class MultiRoundTrainingInstructionGroup(InstructionGroup, Transferable):
                                 checkpoint_key="model_best_val"
                                 if not start_with_val
                                 else "model_best_agg_val",
+                                loader=loader,
                             ),
                             ValidateEpochCommand(
                                 0,

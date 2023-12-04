@@ -1,8 +1,1 @@
-from .topology_register import (
-    TopologyRegister,
-    TopologyType,
-    NodeData,
-    NodeStatus,
-    AuthData,
-    TopologySchema,
-)
+from .topology import Topology, Node, NodeType, NodeStatus

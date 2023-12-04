@@ -1,12 +1,15 @@
-from ..instruction import Instruction
-from .. import ModelInitializationInstruction, Initializer
-from ..instruction_set import InstructionGroup
+from .. import (
+    Initializer,
+    InitGlobalModelAction,
+    ClosedDistribution,
+)
+from .bundle import InstructionBundle
 from ...commands import *
 from ....resources import *
 from ....common import Transferable
 
 
-class DefaultTrainingInitInstructionGroup(InstructionGroup, Transferable):
+class DefaultTrainingInitInstructionBundle(InstructionBundle, Transferable):
     def __init__(
         self,
         model: Model,
@@ -37,7 +40,7 @@ class DefaultTrainingInitInstructionGroup(InstructionGroup, Transferable):
         sample: bool = False,
         simultaneous_execution: int = 0,
     ) -> None:
-        """The DefaultTrainingInitInstructionGroup is a convenience class for creating a sequence of instructions that initialize a model for training.
+        """The DefaultTrainingInitInstructionBundle is a convenience class for creating a sequence of instructions that initialize a model for training.
 
         Args:
             model (Model): The model to train.
@@ -58,6 +61,7 @@ class DefaultTrainingInitInstructionGroup(InstructionGroup, Transferable):
         # create the commands for the sequential command
         commands = [
             LoadDatasetCommand(dataset=dataset),
+            InitModelCommand(model=model),
             SetLossesCommand(losses=losses),
             SetOptimizerCommand(optimizer=optimizer),
         ]
@@ -191,10 +195,10 @@ class DefaultTrainingInitInstructionGroup(InstructionGroup, Transferable):
 
         super().__init__(
             [
-                ModelInitializationInstruction(model=model, initializer=initializer),
-                Instruction(
+                ClosedDistribution(
                     SequentialCommand(commands=commands),
                     simultaneous_execution=simultaneous_execution,
                 ),
+                InitGlobalModelAction(initializer=initializer),
             ]
         )

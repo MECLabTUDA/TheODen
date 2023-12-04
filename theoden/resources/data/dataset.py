@@ -119,6 +119,14 @@ class SampleDataset(Dataset, ABC, Transferable, build=False, is_base_type=True):
         ids = np.random.choice(range(len(self)), batch_size, replace=False)
         return Batch.init_from_samples([self[i] for i in ids])
 
+    def as_single_batch(self) -> Batch:
+        """Returns the whole dataset as a single batch
+
+        Returns:
+            Batch: The whole dataset as a single batch
+        """
+        return Batch.init_from_samples([self[i] for i in range(len(self))])
+
     def save_partition_indices(self, indices: dict[str, list[int]], partition: str):
         path = Path(GlobalContext()["partition_folder"])
 

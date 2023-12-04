@@ -1,6 +1,6 @@
 from ....common import Transferable
 from ..meta.sequential import SequentialCommand
-from ..action import TrainEpochCommand, ValidateEpochCommand
+from ..action import TrainRoundCommand, ValidateEpochCommand
 
 
 class TrainValNTimesCommand(
@@ -41,7 +41,7 @@ class TrainValNTimesCommand(
         # create a list of commands that train and validate the model for n_epochs
 
         cmds = [
-            TrainEpochCommand(
+            TrainRoundCommand(
                 communication_round=communication_round,
                 num_epochs=n_epochs,
                 num_steps=n_steps,

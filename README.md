@@ -16,7 +16,7 @@ We appreciate your interest in TheODen and encourage you to explore its potentia
 
 The core philosophy of TheODen revolves around empowering researchers with versatile starting points to address the multifaceted challenges of federated learning. With TheODen, you gain fine-grained control over crucial aspects of the process, including:
 
--  **Data**: Easily manage and manipulate datasets, a fundamental component in any machine learning endeavor.
+- **Data**: Easily manage and manipulate datasets, a fundamental component in any machine learning endeavor.
 - **Models**: Develop and experiment with machine learning models tailored to your specific requirements.
 - **Aggregation**: Customize the aggregation methods that consolidate knowledge from diverse sources.
 - **Training**: Granularly control the training process across multiple clients.
@@ -120,9 +120,9 @@ The primary components of TheODen framework are outlined below:
 
 | Component Name | Function |
 |---------------|----------|
-| **Command**       | Commands serve as the core functionality, distributed by the server and executed on the clients. They encompass different types, including those setting specific resources (e.g., dataset, optimizer, loss) and action commands (e.g., training one epoch, sending models to the server, validation).  |
+| **Command**       | Commands serve as the core functionality, distributed by the server and executed on the clients. They encompass different types, including those setting specific resource_manager (e.g., dataset, optimizer, loss) and action commands (e.g., training one epoch, sending models to the server, validation).  |
 | **Instruction**   | Instructions form the foundation for server operations, handling command distribution, response management, status updates, and model aggregation. |
-| **Stopper**       | Stoppers are essential for pausing command execution until specific criteria are met. For instance, they are used to wait for a certain number of clients to proceed. | 
+| **Condition**       | Conditions are essential for pausing command execution until specific criteria are met. For instance, they are used to wait for a certain number of clients to proceed. | 
 | **Serverrequest** | Communication between clients and the server is unidirectional, with clients sending server requests and the server responding. This includes status updates, command requests, and more. | 
 | **Watcher**       | Watchers monitor various aspects of the framework, such as metrics, and take actions based on specific tasks. They are also extensible, enabling the addition of new logging functionalities with ease. | 
 

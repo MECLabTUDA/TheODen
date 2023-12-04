@@ -40,13 +40,13 @@ class ModelSaverWatcher(Watcher, Transferable):
         self, notification: NewBestModelNotification, origin: Watcher | None = None
     ) -> None:
         if self.listen_to is None:
-            losses = self.pool.base_topology.resource_register.gr(
+            losses = self.pool.base_topology.resources.gr(
                 "losses", assert_type=list[Loss]
             )
             self.listen_to = Loss.get_choosing_criterion(losses).display_name()
 
         if notification.metric == self.listen_to:
-            cm = self.base_topology.resource_register.checkpoint_manager
+            cm = self.base_topology.resources.checkpoint_manager
 
             path = (
                 Path(self.save_folder)

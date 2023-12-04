@@ -5,6 +5,7 @@ from collections import OrderedDict
 from typing import Any, Union, TypeVar, Type, TYPE_CHECKING
 
 from ..common.typing import is_instance_of_type_hint
+from ..networking import FileStorageInterface
 
 if TYPE_CHECKING:
     from ..watcher import WatcherPool
@@ -15,29 +16,29 @@ T = TypeVar("T")
 D = TypeVar("D")
 
 
-class ResourceRegister(OrderedDict):
-    """A register for resources
+class ResourceManager(OrderedDict):
+    """A manager for resources
 
     The resource register is a dictionary that can be used to register resources.
-    Resources can be retrieved by their key. If the key contains a ':', the resource will be retrieved from a subregister.
+    ResourceManager can be retrieved by their key. If the key contains a ':', the resource will be retrieved from a subregister.
 
     Examples:
-        >>> from theoden.resources import ResourceRegister
+        >>> from theoden.resources import ResourceManager
 
         >>> class MyResource:
         ...     def __init__(self, name: str):
         ...         self.name = name
 
-        >>> resource_register = ResourceRegister()
-        >>> resource_register.sr(key="my_resource", resource=MyResource(name="my_resource"))
+        >>> resource_manager = ResourceManager()
+        >>> resource_manager.sr(key="my_resource", resource=MyResource(name="my_resource"))
 
-        >>> resource_register.gr(key="my_resource", assert_type=MyResource)
+        >>> resource_manager.gr(key="my_resource", assert_type=MyResource)
         <MyResource name="my_resource">
 
-        >>> resource_register.gr(key="my_resource", assert_type=int)
+        >>> resource_manager.gr(key="my_resource", assert_type=int)
         AssertionError: Resource not of type `int` but of type `MyResource`
 
-        >>> resource_register.gr_of_type(MyResource)
+        >>> resource_manager.gr_of_type(MyResource)
         {'my_resource': <MyResource name="my_resource">}
     """
 
@@ -72,31 +73,29 @@ class ResourceRegister(OrderedDict):
         # split by ':'
         splitted_key = key.split(":")
         if len(splitted_key) > 1:
-            # check if first key is in resources
+            # check if first key is in resource_manager
             if splitted_key[0] not in self:
                 # create new resource register
                 sub_register = self.sr(
                     key=splitted_key[0],
-                    resource=ResourceRegister()
+                    resource=ResourceManager()
                     if self.default_subregister_type is None
                     else self.default_subregister_type(),
-                    assert_type=ResourceRegister,
+                    assert_type=ResourceManager,
                     overwrite=overwrite,
                 )
 
             else:
                 if overwrite:
-                    if not isinstance(self[splitted_key[0]], ResourceRegister):
+                    if not isinstance(self[splitted_key[0]], ResourceManager):
                         # set to resource register
                         self[splitted_key[0]] = (
-                            ResourceRegister()
+                            ResourceManager()
                             if self.default_subregister_type is None
                             else self.default_subregister_type()
                         )
                 # get resource register
-                sub_register = self.gr(
-                    key=splitted_key[0], assert_type=ResourceRegister
-                )
+                sub_register = self.gr(key=splitted_key[0], assert_type=ResourceManager)
 
             # register resource in subregister with all except the first key
             return sub_register.sr(
@@ -138,13 +137,13 @@ class ResourceRegister(OrderedDict):
         """
 
         # split by ':'
-        splitted_key = key.split(":")
-        if len(splitted_key) > 1:
+        split_key = key.split(":")
+        if len(split_key) > 1:
             # get resource register
-            sub_register = self.gr(key=splitted_key[0], assert_type=ResourceRegister)
+            sub_register = self.gr(key=split_key[0], assert_type=ResourceManager)
             # get resource from subregister with all except the first key
             return sub_register.gr(
-                key=":".join(splitted_key[1:]), assert_type=assert_type, default=default
+                key=":".join(split_key[1:]), assert_type=assert_type, default=default
             )
 
         try:
@@ -163,7 +162,7 @@ class ResourceRegister(OrderedDict):
 
         return _resource
 
-    def rm(self, key: str, assert_type: T = Any) -> T:
+    def rm(self, key: str, assert_type: Type[T] = Any) -> T:
         """Remove a resource from the resource register
 
         Args:
@@ -182,7 +181,7 @@ class ResourceRegister(OrderedDict):
         splitted_key = key.split(":")
         if len(splitted_key) > 1:
             # get resource register
-            sub_register = self.gr(key=splitted_key[0], assert_type=ResourceRegister)
+            sub_register = self.gr(key=splitted_key[0], assert_type=ResourceManager)
             # get resource from subregister with all except the first key
             return sub_register.rm(
                 key=":".join(splitted_key[1:]), assert_type=assert_type
@@ -210,7 +209,7 @@ class ResourceRegister(OrderedDict):
         splitted_key = key.split(":")
         if len(splitted_key) > 1:
             # get resource register
-            sub_register = self.gr(splitted_key[0], assert_type=ResourceRegister)
+            sub_register = self.gr(splitted_key[0], assert_type=ResourceManager)
             # get resource from subregister with all except the first key
             return sub_register.__contains__(key=":".join(splitted_key[1:]))
 
@@ -245,28 +244,40 @@ class ResourceRegister(OrderedDict):
         )
 
     def gr_of_type(self, resource_type: T) -> dict[str, T]:
-        """Get all resources of a given type
+        """Get all resource_manager of a given type
 
         Args:
-            resource_type (type): The type of the resources to get
+            resource_type (type): The type of the resource_manager to get
 
         Returns:
-            dict[str, any]: The resources of the given type
+            dict[str, any]: The resource_manager of the given type
         """
 
-        # use resources ans subregister
+        # use resource_manager ans subregister
 
-        resources = {}
+        resource_manager = {}
         for key, resource in self.items():
             if is_instance_of_type_hint(resource, resource_type):
-                resources[key] = resource
-            elif isinstance(resource, ResourceRegister):
-                sub_resources = resource.gr_of_type(resource_type)
-                for sub_key, sub_resource in sub_resources.items():
-                    resources[f"{key}:{sub_key}"] = sub_resource
-        return resources
+                resource_manager[key] = resource
+            elif isinstance(resource, ResourceManager):
+                sub_resource_manager = resource.gr_of_type(resource_type)
+                for sub_key, sub_resource in sub_resource_manager.items():
+                    resource_manager[f"{key}:{sub_key}"] = sub_resource
+        return resource_manager
 
     """ Helper functions """
+
+    def _recursive_unpack(self, d: dict) -> dict:
+        new_d = {}
+        for key, val in d.items():
+            if isinstance(val, ResourceManager):
+                new_d[key] = self._recursive_unpack(val)
+            else:
+                new_d[key] = type(val).__name__
+        return new_d
+
+    def get_key_type_dict(self) -> dict[str, str]:
+        return self._recursive_unpack(self)
 
     @property
     def watcher(self) -> "WatcherPool":
@@ -298,3 +309,34 @@ class ResourceRegister(OrderedDict):
             cm = CheckpointManager()
             self.sr(key="__checkpoints__", resource=cm)
         return cm
+
+    @property
+    def client_checkpoints(self) -> "CheckpointManager":
+        """Returns the checkpoint manager and creates it if it does not exist
+
+        Returns:
+            CheckpointManager: The checkpoint manager
+        """
+
+        from .meta import CheckpointManager
+
+        cm = self.gr(
+            key="__client_checkpoints__", assert_type=CheckpointManager, default=None
+        )
+        if cm is None:
+            cm = CheckpointManager()
+            self.sr(key="__client_checkpoints__", resource=cm)
+        return cm
+
+    @property
+    def storage(self) -> FileStorageInterface:
+        """Returns the file storage and creates it if it does not exist
+
+        Returns:
+            FileStorage: The file storage
+        """
+
+        fs = self.gr(key="__storage__", assert_type=FileStorageInterface, default=None)
+        if fs is None:
+            raise ValueError("No file storage interface found")
+        return fs

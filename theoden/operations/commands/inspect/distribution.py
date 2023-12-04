@@ -18,11 +18,10 @@ class InspectLabelDistributionCommand(Command, Transferable):
         num_classes: int | None = 2,
         start_at: int = 0,
         *,
-        node: Optional["Node"] = None,
         uuid: str | None = None,
         **kwargs,
     ) -> None:
-        super().__init__(node=node, uuid=uuid, **kwargs)
+        super().__init__(uuid=uuid, **kwargs)
         self.dataset = dataset
         self.use_sampler = use_sampler
         self.label = label
@@ -30,7 +29,7 @@ class InspectLabelDistributionCommand(Command, Transferable):
         self.start_at = start_at
 
     def execute(self) -> ExecutionResponse | None:
-        dataset = self.node_rr.gr(key=self.dataset, assert_type=SampleDataset)
+        dataset = self.node_rm.gr(key=self.dataset, assert_type=SampleDataset)
 
         labels = torch.zeros(self.num_classes)
 

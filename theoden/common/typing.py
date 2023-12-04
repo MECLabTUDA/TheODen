@@ -1,16 +1,13 @@
+from __future__ import annotations
+
 from typing import Any, TypeVar, Type, Generic
 import json
 from enum import Enum
 from typing import Union
+from uuid import UUID
 
-from pydantic import BaseModel, validator, root_validator
+from pydantic import BaseModel, validator
 from .transferables import Transferables
-
-T = TypeVar("T", Type, None)
-
-
-class NoHash(Generic[T]):
-    ...
 
 
 def is_instance_of_type_hint(obj: any, hint: type):
@@ -63,57 +60,29 @@ def is_instance_of_type_hint(obj: any, hint: type):
         return isinstance(obj, hint)
 
 
-class TaskType(Enum):
-    SEGMENTATION = 1
-    CLASSIFICATION = 2
-
-
 class RegisteredTypeModel(BaseModel):
     datatype: str
     data: dict[str, dict[str, Any]]
 
     @validator("datatype")
     def is_registered_type(cls, v):
-        if not v in Transferables():
+        if v not in Transferables():
             raise ValueError(f"{v} is not a registered type")
         return v
 
 
-class ExecutionStatus(BaseModel):
-    status: str
-    message: str
-    data: Any
-
-
-class NodeStatusUpdate(BaseModel):
-    uuid: str
-    status: ExecutionStatus
-    response: Any
-    files: Any
-
-
-class RequestResponse(BaseModel):
-    status: ExecutionStatus
-    response: Any
-    files: Any
-
-
 class ExecutionResponse(BaseModel):
-    data: dict | str | None = None
-    files: dict[str, str] | dict[str, bytes] | None = None
+    data: dict | None = None
+    files: dict[str, bytes] | dict[str, str] | None = None
     response_type: str | None = None
 
-    def get_data(self, as_type: type = dict) -> dict | str:
+    def contains_files(self) -> bool:
+        # check if files are none or empty
+        return self.files is not None and self.files
+
+    def get_data(self) -> dict | str:
         # If v is not None, convert it to a json string
-        if self.data is not None:
-            if not isinstance(self.data, as_type):
-                if isinstance(self.data, str) and as_type == dict:
-                    return json.loads(self.data)
-                elif isinstance(self.data, dict) and as_type == str:
-                    return json.dumps(self.data)
-            else:
-                return self.data
-        return {} if as_type == dict else "{}"
+        return self.data if self.data else {}
 
     def get_files(self, as_bytes: bool = True) -> dict[str, bytes] | dict[str, str]:
         """Returns the files as a dictionary of file_name: file_path or file_name: file_bytes
@@ -144,8 +113,13 @@ class ExecutionResponse(BaseModel):
                     return_dict[file_name] = file_load
         return return_dict
 
+
+class TransmissionExecutionResponse(BaseModel):
+    data: dict | None = None
+    files: dict[str, str] | None = None
+    response_type: str | None = None
+
     def contains_files(self) -> bool:
-        # check if files are none or empty
         return self.files is not None and self.files
 
 
@@ -184,16 +158,16 @@ class MetricResponse(ExecutionResponse):
 
 
 class ResourceResponse(ExecutionResponse):
-    def __init__(self, resource_type: str, resources: dict[str, any]):
-        if not isinstance(resources, dict):
-            raise ValueError("Resources must be a dictionary")
-        for resource_name, _ in resources.items():
+    def __init__(self, resource_type: str, resource_manager: dict[str, any]):
+        if not isinstance(resource_manager, dict):
+            raise ValueError("ResourceManager must be a dictionary")
+        for resource_name, _ in resource_manager.items():
             if not isinstance(resource_name, str):
                 raise ValueError("Resource names must be strings")
 
         super().__init__(
             data={"resource_type": resource_type},
-            files=resources,
+            files=resource_manager,
             response_type="resource",
         )
 
@@ -216,39 +190,48 @@ class StatusUpdate(BaseModel):
     command_uuid: str
     status: int
     datatype: str
-    node_uuid: str | None = None
+    node_name: str | None = None
     response: ExecutionResponse | None = None
 
     def contains_files(self) -> bool:
         return self.response is not None and self.response.contains_files()
 
     def get_response_data(self, as_type: type = dict) -> dict:
-        return self.response.get_data(as_type) if self.response else {}
+        return self.response.get_data() if self.response else {}
 
     def get_response_files(self) -> dict[str | bytes]:
         return self.response.get_files() if self.response else {}
 
-    def to_post(self) -> dict:
-        ret_files = {}
-        if self.response and self.response.files is not None:
-            for file_name, file_load in self.response.files.items():
-                # If file_load is a string, it is a path to a file
-                if isinstance(file_load, str):
-                    with open(file_load, "rb") as f:
-                        ret_files[file_name] = f.read()
-                # If file_load is bytes, it is the file itself
-                else:
-                    ret_files[file_name] = file_load
-
-        _data = {"data": self.dict(exclude={"response"})}
-        _data["data"]["response"] = (
-            self.response.get_data(as_type=str) if self.response else "{}"
-        )
-        _data["data"]["response_type"] = (
-            self.response.response_type if self.response else None
+    def unload(self, files: dict[str, str]) -> TransmissionStatusUpdate:
+        return TransmissionStatusUpdate(
+            command_uuid=self.command_uuid,
+            status=self.status,
+            datatype=self.datatype,
+            node_name=self.node_name,
+            response=TransmissionExecutionResponse(
+                data=self.response.data,
+                files=files,
+                response_type=self.response.response_type,
+            )
+            if self.response
+            else None,
         )
 
-        return {
-            **_data,
-            "files": ret_files,
-        }
+
+class TransmissionStatusUpdate(StatusUpdate):
+    response: TransmissionExecutionResponse | None = None
+
+    def refill(self, files: dict[str, bytes]) -> StatusUpdate:
+        return StatusUpdate(
+            command_uuid=self.command_uuid,
+            status=self.status,
+            datatype=self.datatype,
+            node_name=self.node_name,
+            response=ExecutionResponse(
+                data=self.response.data,
+                files=files,
+                response_type=self.response.response_type,
+            )
+            if self.response
+            else None,
+        )

@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 
-from ..common.typing import StatusUpdate, ExecutionStatus
+from ..common.typing import StatusUpdate
+from ..operations import ServerRequest
+from ..topology import Topology
 
 
 class WatcherNotification(BaseModel):
@@ -22,7 +24,19 @@ class StatusUpdateNotification(WatcherNotification):
 class ServerRequestNotification(WatcherNotification):
     """Notification for a server request."""
 
-    request: str
+    request: ServerRequest
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class TopologyChangeNotification(WatcherNotification):
+    """Notification for a server request."""
+
+    topology: Topology
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class NewBestModelNotification(WatcherNotification):
@@ -59,6 +73,6 @@ class MetricNotification(WatcherNotification):
     metric_type: str
     comm_round: int | None = None
     epoch: int | None = None
-    node_uuid: str | None = None
+    node_name: str | None = None
     is_aggregate: bool = False
     command_uuid: str | None = None

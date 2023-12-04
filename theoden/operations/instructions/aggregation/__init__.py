@@ -1,4 +1,7 @@
-from .aggregation import AggregateInstruction
-from .aggregator import Aggregator
-from .fedavg import FedAvgAggregator
-from .fedopt import FedSGDServerOptimizer, FedOptAggregator, ServerOptimizer
+from .aggregate import Aggregator, AggregationAction
+from .fedopt import (
+    FedSGDServerOptimizer,
+    FedOptAggregator,
+    ServerOptimizer,
+    FedAvgAggregator,
+)

@@ -23,7 +23,7 @@ class NewBestDetectorWatcher(MetricCollectionWatcher, Transferable):
 
     def _process_metrics(self, metric: MetricNotification) -> None:
         if self.metric is None:
-            losses = self.pool.base_topology.resource_register.gr(
+            losses = self.pool.base_topology.resources.gr(
                 "losses", assert_type=list[Loss]
             )
             choosing = Loss.get_choosing_criterion(losses)

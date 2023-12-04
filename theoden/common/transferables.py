@@ -11,6 +11,8 @@ from typing import TypeVar, Generic, Type, Literal, get_origin, get_args, Union
 from .singleton import SingletonMeta
 from .utils import are_classes_from_same_package, hash_dict
 
+T = TypeVar("T")
+
 
 class Transferable:
     _original_init: callable
@@ -22,8 +24,8 @@ class Transferable:
 
     def __init_subclass__(
         cls: type[Transferable],
-        is_base_type=False,
-        base_type: Transferable | None = None,
+        is_base_type: bool = False,
+        base_type: type[Transferable] | None = None,
         implements: type[Transferable] | None = None,
         return_super_class_dict: bool = False,
         **kwargs,
@@ -346,7 +348,7 @@ class Transferables(metaclass=SingletonMeta):
             """
 
             # check ig the class is from this package or external
-            is_internal = are_classes_from_same_package(self, cls)
+            is_internal = are_classes_from_same_package(type(self), cls)
 
             # if the class is external, check if the base type is specified
             if not is_internal and not is_base_type and base_type is None:
@@ -430,9 +432,9 @@ class Transferables(metaclass=SingletonMeta):
     def to_object(
         self,
         json_data: dict,
-        base_type: str | type | None = None,
+        base_type: type[T] | str | None = None,
         **additional_kwargs: any,
-    ) -> Transferable:
+    ) -> T | Transferable:
         """Converts a dict to an object.
 
         Args:
@@ -456,7 +458,6 @@ class Transferables(metaclass=SingletonMeta):
             if isinstance(base_type, str)
             else base_type_ != base_type
         ):
-            print(base_type)
             raise TypeError(
                 f"Expected object of with base_type '{base_type.__name__ if isinstance(base_type, type) else base_type}', got '{base_type_.__name__}'."
             )
@@ -666,11 +667,7 @@ def dict_to_object(
                 return Transferables()[value]
             # Check if the data type is registered and convert using the registered type
             elif type_name in Transferables():
-                return (
-                    Transferables()[type_name]
-                    .init_from_dict(value)
-                    .init_after_deserialization()
-                )
+                return Transferables().to_object(value).init_after_deserialization()
             else:
                 # Raise TypeError if the data type is not supported
                 raise TypeError("Unsupported data type: {}".format(type_name))

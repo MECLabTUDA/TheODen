@@ -1,5 +1,3 @@
-from typing import Optional
-
 from .wrap_dataset import WrapDatasetCommand
 from ....common import Transferable
 from ....resources import Augmentation, AugmentationDataset
@@ -12,16 +10,14 @@ class SetAugmentationCommand(WrapDatasetCommand, Transferable):
         augmentation: Augmentation,
         key: str = "dataset:train",
         mode: str = "replace",
-        seed: Optional[int] = None,
+        seed: int | None = None,
         *,
-        node: Optional["Node"] = None,
-        uuid: Optional[str] = None,
+        uuid: str | None = None,
         **kwargs
     ) -> None:
         super().__init__(
             dataset=key,
             wrapper=AugmentationDataset,
-            node=node,
             uuid=uuid,
             augmentation=augmentation,
             seed=seed,
@@ -36,24 +32,22 @@ class SetNodeSpecificAugmentationCommand(Command, Transferable):
         augmentations: list[Augmentation],
         key: str = "dataset:train",
         mode: str = "replace",
-        seed: Optional[int] = None,
+        seed: int | None = None,
         *,
-        node: Optional["Node"] = None,
         uuid: str | None = None,
         **kwargs
     ) -> None:
-        super().__init__(node=node, uuid=uuid, **kwargs)
+        super().__init__(uuid=uuid, **kwargs)
         self.augmentations = augmentations
         self.key = key
         self.mode = mode
         self.seed = seed
 
     def node_specific_modification(
-        self, status_register: dict[str, "StatusTable"], node_uuid: str
+        self, distribution_table: "DistributionStatusTable", node_name: str
     ) -> Command:
-        table = status_register[self.uuid]
-        included = table.get_included()
-        key = sorted(included).index(node_uuid)
+        included = distribution_table.selected
+        key = sorted(included).index(node_name)
 
         return SetAugmentationCommand(
             augmentation=self.augmentations[key],

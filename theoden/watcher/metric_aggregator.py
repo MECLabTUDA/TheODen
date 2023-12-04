@@ -12,7 +12,7 @@ class MetricAggregationWatcher(MetricCollectionWatcher, Transferable):
         super().__init__({CommandFinishedNotification: self._handle_command_finished})
         self.aggregation_method = aggregation_method
         self.clear_after_aggregation = clear_after_aggregation
-        self._metrics: list[str, MetricNotification] = {}
+        self._metrics: dict[str, list[MetricNotification]] = {}
 
     def _handle_command_finished(
         self, notification: CommandFinishedNotification, origin: Watcher | None = None
@@ -70,7 +70,7 @@ class MetricAggregationWatcher(MetricCollectionWatcher, Transferable):
                             comm_round=comm_round,
                             epoch=epoch,
                             metric_type=metric_type,
-                            node_uuid=self.aggregation_method,
+                            node_name=self.aggregation_method,
                             is_aggregate=True,
                             command_uuid=notification.command_uuid,
                         ),

@@ -1,12 +1,15 @@
 from typing import TYPE_CHECKING, Optional
 
 from .request import ServerRequest
-from ...common import Transferable
-from ..instructions import Instruction, InstructionStatus, InstructionGroup
-from ..stopper import Stopper
-
-if TYPE_CHECKING:
-    from theoden.topology.server import Server
+from ...common import Transferable, ExecutionResponse
+from ..instructions import (
+    InstructionStatus,
+    Instruction,
+    Action,
+    Distribution,
+    InstructionBundle,
+)
+from ..condition import Condition
 
 
 class PullCommandRequest(ServerRequest, Transferable):
@@ -16,27 +19,24 @@ class PullCommandRequest(ServerRequest, Transferable):
     It is the main request used by the nodes communicating with the server and the tool to distribute commands to the nodes.
     """
 
-    def __init__(
-        self, uuid: None | str = None, server: Optional["Server"] = None, **kwargs
-    ):
+    def __init__(self, uuid: None | str = None, **kwargs):
         """A request to pull a command from the server.
 
         Args:
             uuid (None | str, optional): The uuid of the request. Defaults to None.
-            server (Optional["Server"], optional): The server to pull the command from. Defaults to None.
         """
-        super().__init__(uuid, server, **kwargs)
+        super().__init__(uuid=uuid, **kwargs)
 
     @property
-    def operation_head(self) -> Instruction | InstructionGroup | Stopper | None:
+    def operation_head(self) -> Instruction | InstructionBundle | Condition | None:
         """Returns the operation head, which is the first operation in the operations list.
         If the operation head is an instruction set, unpack it and add it to the operations list as separate instructions.
 
         Returns:
-            Instruction | InstructionGroup | Stopper | None: The operation head. If there are no operations, returns None.
+            Instruction | InstructionBundle | Condition | None: The operation head. If there are no operations, returns None.
         """
         if self.server.operations and isinstance(
-            self.server.operations[0], InstructionGroup
+            self.server.operations[0], InstructionBundle
         ):
             # if the next operation is an instruction set, we need to unpack it and add it to the operations list as separate instructions
             self.server.operations = (
@@ -44,7 +44,7 @@ class PullCommandRequest(ServerRequest, Transferable):
             )
         return self.server.operations[0] if self.server.operations else None
 
-    def execute(self) -> dict:
+    def execute(self) -> ExecutionResponse | None:
         """Executes the request and returns, if available, the command to be executed by the node.
 
         Returns:
@@ -52,20 +52,22 @@ class PullCommandRequest(ServerRequest, Transferable):
         """
         # If there are no operations, return an empty dictionary
         if not self.operation_head:
-            return {}
+            return ExecutionResponse(data={})
 
-        # If the operation head is a stopper, check if it is resolved. If it is, pop it from the operations list and continue
-        while isinstance(self.operation_head, Stopper):
-            # If the stopper is not resolved, return an empty dictionary
-            if not self.operation_head.resolved(self.server):
-                return {}
-            # If the stopper is resolved, pop it from the operations list and continue
+        # If the operation head is a condition, check if it is resolved. If it is, pop it from the operations list and continue
+        while isinstance(self.operation_head, Condition):
+            # If the condition is not resolved, return an empty dictionary
+            if not self.operation_head.resolved(
+                topology=self.server.topology,
+                resource_manager=self.server.resources,
+            ):
+                return ExecutionResponse(data={})
+            # If the condition is resolved, pop it from the operations list and continue
             else:
                 self.server.history.append(self.server.operations.pop(0))
 
-        # If the operation head is an instruction, check if it is completed. If it is, pop it from the operations list and continue
         if isinstance(self.operation_head, Instruction):
-            if self.operation_head.instruction_status is InstructionStatus.COMPLETED:
+            if self.operation_head.status is InstructionStatus.COMPLETED:
                 # If the instruction is completed, check if it has a successor. If it does, add it to the operations list
                 successor = self.operation_head.successor
                 self.server.history.append(self.server.operations.pop(0))
@@ -73,12 +75,22 @@ class PullCommandRequest(ServerRequest, Transferable):
                     self.server.operations = successor + self.server.operations
 
             # Infer the command from the instruction and return it as a dictionary
-
             if not self.operation_head:
-                return {}
-            return self.operation_head.infer_command(
-                node_uuid=self.node_uuid,
-                topology_register=self.server.topology_register,
-                resource_register=self.server.resource_register,
-                as_dict=True,
+                return ExecutionResponse(data={})
+
+        # If the operation head is an instruction, check if it is completed. If it is, pop it from the operations list and continue
+        if isinstance(self.operation_head, Distribution):
+            command = self.operation_head.infer_command(
+                node_name=self.node_name,
+                topology=self.server.topology,
+                resource_manager=self.server.resources,
             )
+            return ExecutionResponse(data=command.dict() if command is not None else {})
+
+        elif isinstance(self.operation_head, Action):
+            if self.operation_head.status is InstructionStatus.CREATED:
+                self.operation_head(
+                    topology=self.server.topology,
+                    resource_manager=self.server.resources,
+                )
+            return ExecutionResponse(data={})

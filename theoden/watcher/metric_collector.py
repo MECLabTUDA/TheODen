@@ -1,8 +1,3 @@
-from abc import ABC, abstractmethod
-
-from theoden.watcher.notifications import WatcherNotification
-
-
 from ..common import Transferable
 from .watcher import Watcher
 from .notifications import (
@@ -51,15 +46,17 @@ class MetricCollectionWatcher(Watcher, Transferable):
         # Get the status update
         status_update = notification.status_update
         # Check if the status update is a metric response
-        if status_update.response.response_type == "metric":
+        if status_update.response and status_update.response.response_type == "metric":
             # Save the metrics
             self._process_metrics(
                 MetricNotification(
                     metrics=status_update.response.get_data()["metrics"],
-                    comm_round=status_update.response.get_data()["comm_round"],
-                    epoch=status_update.response.get_data()["epoch"],
+                    comm_round=status_update.response.get_data().get(
+                        "comm_round", None
+                    ),
+                    epoch=status_update.response.get_data().get("epoch", None),
                     metric_type=status_update.response.get_data()["metric_type"],
-                    node_uuid=status_update.node_uuid,
+                    node_name=status_update.node_name,
                     command_uuid=status_update.command_uuid,
                 )
             )

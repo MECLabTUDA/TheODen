@@ -1,16 +1,7 @@
-import torch
-
-from typing import Any, Optional
-import io
-from pathlib import Path
-
-
-from ....common import Transferable, GlobalContext, ExecutionResponse
-from ....topology import TopologyRegister
-from ....resources import ResourceRegister, Model
-from .. import Command
+from ....common import Transferable
+from ....topology import Topology
+from ....resources import ResourceManager, Model
 from . import SetResourceCommand
-from ...serverrequests import GetResourceCheckpointRequest
 
 
 class InitModelCommand(SetResourceCommand, Transferable):
@@ -24,7 +15,7 @@ class InitModelCommand(SetResourceCommand, Transferable):
 
     model = Model("timm", {"model_name": "resnet18"})})
     command = InitModelCommand(model)
-    command.execute()
+    command()
     ```
     """
 
@@ -34,8 +25,7 @@ class InitModelCommand(SetResourceCommand, Transferable):
         model_key: str = "model",
         overwrite: bool = True,
         *,
-        node: Optional["Node"] = None,
-        uuid: Optional[str] = None,
+        uuid: str | None = None,
         **kwargs
     ) -> None:
         """Initialize a model on a node.
@@ -55,9 +45,8 @@ class InitModelCommand(SetResourceCommand, Transferable):
             key=model_key,
             resource=model,
             overwrite=overwrite,
-            node=node,
             uuid=uuid,
-            **kwargs
+            **kwargs,
         )
         self.assert_type = Model
 
@@ -70,41 +59,13 @@ class InitModelCommand(SetResourceCommand, Transferable):
         Returns:
             Model: The parsed model.
         """
-        return resource.parse_to(self.node_rr.gr("device", str))
+        return resource.parse_to(self.node_rm.gr("device", str))
 
     def all_clients_finished_server_side(
         self,
-        topology_register: TopologyRegister,
-        resource_register: ResourceRegister,
+        topology: Topology,
+        resource_manager: ResourceManager,
         instruction_uuid: str,
     ) -> None:
         # initialize a global model
-        resource_register.sr(self.key, self.resource)
-
-
-class LoadStateDictCommand(Command, Transferable):
-    def __init__(
-        self,
-        resource_key: str,
-        checkpoint_key: str = "__global__",
-        *,
-        node: Optional["Node"] = None,
-        uuid: Optional[str] = None,
-        **kwargs
-    ) -> None:
-        super().__init__(node=node, uuid=uuid, **kwargs)
-        self.resource_key = resource_key
-        self.checkpoint_key = checkpoint_key
-
-    def execute(self) -> ExecutionResponse | None:
-        # request state dict from server
-        response = self.node.send_server_request(
-            GetResourceCheckpointRequest(
-                resource_type="model",
-                resource_key=self.resource_key,
-                checkpoint_key=self.checkpoint_key,
-            )
-        )
-        # load state dict into model
-        sd = torch.load(io.BytesIO(response.content))
-        self.node_rr.gr(self.resource_key, assert_type=Model).load_state_dict(sd)
+        resource_manager.sr(self.key, self.resource)

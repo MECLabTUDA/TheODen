@@ -10,8 +10,10 @@ from .notifications import (
     ParameterNotification,
     CommandFinishedNotification,
     InitializationNotification,
+    TopologyChangeNotification,
 )
 from .aim import AimMetricCollectorWatcher
 from .metric_aggregator import MetricAggregationWatcher
 from .best_detector import NewBestDetectorWatcher
 from .model_saver import ModelSaverWatcher
+from .console import TheodenConsoleWatcher

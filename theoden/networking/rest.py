@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import fastapi
-from fastapi import FastAPI, Request, status, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from starlette.datastructures import UploadFile as StarletteUploadFile
 
 import logging
 import requests
@@ -15,17 +14,21 @@ from ..operations import *
 from ..common import (
     Transferables,
     StatusUpdate,
+    TransmissionStatusUpdate,
     RegisteredTypeModel,
     UnauthorizedError,
     ServerRequestError,
+    ExecutionResponse,
+    TransmissionExecutionResponse,
 )
 from .interface import NodeInterface
-from ..topology.topology_register import TopologyRegister, NodeData, NodeStatus
+from ..topology.topology import Topology, NodeStatus, Node, NodeType
 from ..security import create_access_token, decode_token
+from ..security.auth import AuthenticationManager, UserRole
+from .storage import FileStorageInterface
 
 
 if TYPE_CHECKING:
-    from ..operations import ServerRequest
     from ..topology.server import Server
 
 
@@ -33,105 +36,114 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token", auto_error=False)
 
 
 class RestServerInterface(FastAPI):
-    def __init__(self, server: "Server", **kwargs) -> None:
+    def __init__(
+        self,
+        server: "Server",
+        node_config: str | None = None,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self.server = server
+
+        self.auth_manager = AuthenticationManager(
+            yaml_file=node_config, simulation=node_config is None
+        )
 
         @self.exception_handler(RequestValidationError)
         async def validation_exception_handler(
             request: Request, exc: RequestValidationError
         ):
-            exc_str = f"{exc}".replace("\n", " ").replace("   ", " ")
-            logging.error(f"{request}: {exc_str}")
-            content = {"status_code": 10422, "message": exc_str, "data": None}
+            # Extract validation errors and details
+            validation_errors = exc.errors()
+            error_messages = []
+            for error in validation_errors:
+                field = error["loc"][0] if error["loc"] else "body"
+                error_message = f"Field '{field}' {error['msg']}"
+                error_messages.append(error_message)
+
+            # Combine error messages into a single string
+            error_message_str = "\n".join(error_messages)
+
+            # Log the error message
+            logging.error(f"{request}: {error_message_str}")
+
+            # Create a response with more details
+            content = {
+                "status_code": 10422,
+                "message": "Request validation error",
+                "errors": error_messages,
+            }
             return JSONResponse(
-                # content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
                 content=content,
                 status_code=fastapi.status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
 
         @self.post("/token")
         async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-            if not self.top_reg.schema.auth_mode:
-                # We dont need to authenticate, so we ignore the username and password
-                node_data = self.top_reg.register_node(status=NodeStatus.CONNECTED)
-                # create a new access token that does not expire since we are in local mode
-                access_token = create_access_token(
-                    data={"sub": node_data.uuid}, delta=0
+            try:
+                user = self.auth_manager.authenticate(
+                    form_data.username, form_data.password
                 )
-
-            else:
-                # We need to authenticate, so we check the username and password
-                node_data = self.top_reg.get_node_by_username(form_data.username)
-                if not node_data:
-                    raise HTTPException(
-                        status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
-                        detail="Incorrect username or password",
-                    )
-                if not node_data.auth.authenticate(form_data.password):
-                    raise HTTPException(
-                        status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
-                        detail="Incorrect username or password",
-                    )
-                # create a new access token
-                access_token = create_access_token(data={"sub": node_data.uuid})
-
-                node_data.token = access_token
-                node_data.status = NodeStatus.CONNECTED
-
-            return {"access_token": access_token, "token_type": "bearer"}
-
-        def authenticate(token: str) -> str:
-            node_uuid = decode_token(token)
-            if not self.top_reg.user_exists(node_uuid):
+            except UnauthorizedError:
                 raise HTTPException(
                     status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid authentication credentials",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            return node_uuid
+
+            # create a new access token
+            access_token = create_access_token(data={"sub": user.username})
+            # store the access token in the auth manager
+            user.token = access_token
+
+            if (
+                self.auth_manager.simulation
+                and user.username not in self.server.topology.nodes
+            ):
+                self.server.topology.add_node(
+                    Node(
+                        node_name=user.username,
+                        node_type=NodeType.CLIENT,
+                        status=NodeStatus.ONLINE,
+                    )
+                )
+
+            self.server.topology.set_online(user.username)
+
+            return {"access_token": access_token, "token_type": "bearer"}
+
+        def authenticate_token(token: str) -> str:
+            username = decode_token(token)
+            if not self.auth_manager.get_user_by_name(username):
+                raise HTTPException(
+                    status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid authentication credentials",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            return username
 
         @self.post("/status")
-        async def status_with_files(
-            token: Annotated[str, Depends(oauth2_scheme)], request: Request
+        async def status(
+            token: Annotated[str, Depends(oauth2_scheme)],
+            status_update: TransmissionStatusUpdate,
         ):
             # authenticate the user
-            node_uuid = authenticate(token)
+            node_name = authenticate_token(token)
 
-            # get the form data
-            form_data = await request.form()
+            # add the node uuid to the status update
+            status_update.node_name = node_name
 
-            # convert the form data to a dict
-            obj_dict = {
-                key: value
-                for key, value in form_data.items()
-                if not isinstance(value, StarletteUploadFile)
-            }
-            obj_dict["node_uuid"] = node_uuid
+            downloaded_resource_manager = {}
 
-            try:
-                # convert the response to a dict
-                obj_dict["response"] = {}
-                obj_dict["response"]["data"] = form_data["response"]
+            if status_update.contains_files():
+                for file_name, file_uuid in status_update.response.files.items():
+                    response = self.storage_interface.load_resource(file_uuid)
+                    downloaded_resource_manager[file_name] = response
 
-                # convert the files to bytes
-                obj_dict["response"]["files"] = {
-                    key: await value.read()
-                    for key, value in form_data.items()
-                    if isinstance(value, StarletteUploadFile)
-                }
-                obj_dict["response"]["response_type"] = form_data.get(
-                    "response_type", None
-                )
-                # convert the dict to a StatusUpdateWithFile
-                status_update = StatusUpdate.parse_obj(obj_dict)
+                    # remove file from storage
+                    self.storage_interface.remove_resource(file_uuid)
 
-            except Exception as e:
-                print(e)
-                raise HTTPException(
-                    status_code=fastapi.status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Invalid status update",
-                )
+            status_update = status_update.refill(downloaded_resource_manager)
 
             return self.server.process_status_update(status_update)
 
@@ -141,45 +153,63 @@ class RestServerInterface(FastAPI):
             request_body: RegisteredTypeModel,
         ):
             # authenticate the user
-            node_uuid = authenticate(token)
+            node_name = authenticate_token(token)
 
             # convert the request body to a ServerRequest
-            server_request = Transferables().to_object(
+            sr = Transferables().to_object(
                 request_body.dict(),
-                "ServerRequest",
-                server=self.server,
-                node_uuid=node_uuid,
+                ServerRequest,
+                node_name=node_name,
             )
+
             try:
                 # process the server request on the server
-                response = self.server.process_server_request(server_request)
+                response = self.server.process_server_request(sr)
+                files = {}
+                if response.contains_files():
+                    files = self.storage_interface.upload_resources(
+                        response.get_files()
+                    )
+                response = TransmissionExecutionResponse(
+                    data=response.data,
+                    files=files,
+                    response_type=response.response_type,
+                )
+
             except UnauthorizedError as e:
                 raise HTTPException(
                     status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
                     detail=str(e),
                 )
 
-            # if response are bytes, return a file response, otherwise return a json response
-            if isinstance(response, bytes):
-                return StreamingResponse(iter([response]))
-            elif isinstance(response, str):
-                return FileResponse(response)
-            else:
-                return JSONResponse(response)
+            return JSONResponse(content=response.dict())
 
     @property
-    def top_reg(self) -> TopologyRegister:
-        return self.server.topology_register
+    def top_reg(self) -> Topology:
+        return self.server.topology
+
+    def start(self):
+        pass
+
+    def init(self):
+        pass
+
+    def add_storage_interface(self, storage_interface: FileStorageInterface) -> None:
+        self.storage_interface = storage_interface
+        if self.storage_interface.storage is not None:
+            self.mount("/", self.storage_interface.storage)
 
 
 class RestNodeInterface(NodeInterface):
     def __init__(
         self,
+        command_queue: list[dict],
         address: str = "localhost",
         port: int = 8000,
         https: bool = False,
         username: str = "dummy",
         password: str = "dummy",
+        ping_interval: float = 1.0,
     ) -> None:
         """A federated learning node communication interface based on REST.
 
@@ -194,44 +224,95 @@ class RestNodeInterface(NodeInterface):
         self.address = address
         self.port = port
         self.https = https
+        self.command_queue = command_queue
+        self.ping_interval = ping_interval
 
         # get the token from the server using the username and password. This will be used for authentication.
         self.token = self.request_token(username=username, password=password)
 
-    def send_status_update(self, status_update: StatusUpdate) -> requests.Response:
+    def start(self):
+        pass
+
+    def send_status_update(self, status_update: StatusUpdate) -> None:
         try:
+            resource_uuids = {}
+
+            if status_update.contains_files():
+                resource_uuids.update(
+                    self.storage_interface.upload_resources(
+                        status_update.response.get_files(),
+                        is_server_only=True,
+                    )
+                )
+
             response = requests.post(
                 f"{'https' if self.https else 'http'}://{self.address}:{self.port}/status",
-                **status_update.to_post(),
+                json=status_update.unload(resource_uuids).dict(),
                 headers={"Authorization": f"Bearer {self.token}"},
             )
+
         except requests.exceptions.ConnectionError as e:
             raise ServerRequestError(f"Could not connect to server")
         except Exception as e:
             raise ServerRequestError(f"Could not send server request: {e}")
-        # if response.status_code == 401:
-        #     # check if token expired
-        #     if response.json()["detail"] == "Invalid authentication credentials":
-        #     self.request_token()
-        #     self.send_status_update(status_update)
 
-    def send_server_request(self, request: "ServerRequest") -> requests.Response:
+    def add_storage_interface(self, storage_interface: FileStorageInterface) -> None:
+        self.storage_interface = storage_interface
+        self.storage_interface.set_token(self.token)
+
+    def send_server_request(self, request: ServerRequest) -> ExecutionResponse:
+        """Send a server request to the server.
+
+        Args:
+            request (ServerRequest): The server request to send.
+
+        Returns:
+            requests.Response: The response from the server.
+
+        Raises:
+            ServerRequestError: If the server request could not be sent.
+            UnauthorizedError: If the server returns a 401 status code.
+        """
+
         try:
             response = requests.post(
                 f"{'https' if self.https else 'http'}://{self.address}:{self.port}/serverrequest",
                 json=request.dict(),
                 headers={"Authorization": f"Bearer {self.token}"},
             )
+
+            if response.status_code == 401:
+                raise UnauthorizedError(response.json()["detail"])
+
+            execution_response = TransmissionExecutionResponse(**response.json())
+            files = {}
+            if execution_response.contains_files():
+                for file_name, file_uuid in execution_response.files.items():
+                    response = self.storage_interface.load_resource(file_uuid)
+                    files[file_name] = response
+            execution_response = ExecutionResponse(
+                data=execution_response.data,
+                files=files,
+                response_type=execution_response.response_type,
+            )
+            return execution_response
+
         except requests.exceptions.ConnectionError as e:
             raise ServerRequestError(f"Could not connect to server")
         except Exception as e:
             raise ServerRequestError(f"Could not send server request: {e}")
 
-        if response.status_code == 401:
-            raise UnauthorizedError(response.json()["detail"])
-        return response
-
     def request_token(self, username: str = "", password: str = "") -> str:
+        """Request a token from the server.
+
+        Args:
+            username (str): The username to use for authentication.
+            password (str): The password to use for authentication.
+
+        Returns:
+            str: The token.
+        """
+
         try:
             response = requests.post(
                 f"{'https' if self.https else 'http'}://{self.address}:{self.port}/token",

@@ -1,12 +1,11 @@
 from torchvision import transforms
-import uvicorn
 
-from theoden.topology.server import Server
 from theoden.common import GlobalContext
 from theoden.operations import *
 from theoden.resources import *
 from theoden.datasets import *
 from theoden.models import *
+from theoden import start_server
 
 """
 Basic example of a federated learning server. 
@@ -18,12 +17,12 @@ As the server is the main module to handle and orchestrate the training,
 GlobalContext().load_from_yaml("demo_context.yaml")
 
 initial_instructions = [
-    # The stopper is used to wait for a certain number of nodes to join the federation before starting training.
-    RequireNumberOfNodesOrRequireAllIfSchemaHasAuthMode(3),
+    # The condition is used to wait for a certain number of nodes to join the federation before starting training.
+    RequireNumberOfNodesCondition(3),
     # The default training instruction group is a class that allows specifying many relevant training options.
     # This includes the dataset, the splits, augmentations, losses, optimizer, scheduler and the model.
-    DefaultTrainingInitInstructionGroup(
-        # we use the SMPModel with a resnet34 encoder and 4 classes
+    DefaultTrainingInitInstructionBundle(
+        # we use the SMPModel with a resnet34 encoder and 10 classes
         model=SMPModel(architecture="unet", classes=4, encoder_name="resnet34"),
         # we use the BCSSDataset where we exclude patches with mainly background and only use the first 4 classes
         dataset=ExclusionDataset(
@@ -64,20 +63,21 @@ initial_instructions = [
         simultaneous_execution=1,
     ),
     # For the client score we use the DatasetLengthScore which is the default score for FedAvg.
-    Instruction(CalculateClientScoreCommand(DatasetLengthScore("dataset:train"))),
+    ClosedDistribution(
+        CalculateClientScoreCommand(DatasetLengthScore("dataset:train"))
+    ),
     # The multi-round training instruction group is used to specify the training loop.
     # It specifies the number of rounds, steps per round, the batch sizes, the aggregator and the distributor.
-    MultiRoundTrainingInstructionGroup(
+    MultiRoundTrainingInstructionBundle(
         # we train for 1000 rounds with 5 steps per round
         n_rounds=1000,
         steps_per_round=5,
-        # we use a batch size of 12 for training and 24 for validation
+        # we use a batch size of 12 for training and 128 for validation
         train_batch_size=12,
-        validation_batch_size=24,
-        # we use the FedOptAggregator with a FedSGDServerOptimizer and a DatasetLengthScore (this equals FedAvg)
+        validation_batch_size=128,
+        # we use the FedAvgAggregator with the DatasetLengthScore as client score
         aggregator=FedOptAggregator(
-            server_optimizer=FedSGDServerOptimizer(lr=1.0, beta=0.0),
-            client_score=DatasetLengthScore,
+            server_optimizer=FedAvgAggregator(), client_score=DatasetLengthScore
         ),
         # we validate on the val split of the dataset after every 10 rounds
         validate_every_n_rounds=10,
@@ -87,7 +87,9 @@ initial_instructions = [
     ),
 ]
 
-# Create a server object with debug mode enabled and the initial instructions.
-e = Server(initial_instructions=initial_instructions, run_name="theoden_demo")
-# Start the server and open the interface.
-uvicorn.run(e.communication_interface, log_level="error")
+# start the server
+start_server(
+    instructions=initial_instructions,
+    run_name="theoden_demo",
+    rabbitmq=False,
+)
