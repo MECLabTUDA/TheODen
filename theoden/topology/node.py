@@ -64,6 +64,7 @@ class Node:
                 password=password,
                 address=resource_address or communication_address,
                 port=resource_port or 8000,
+                https=ssl,
             ),
             device="cuda",
         )

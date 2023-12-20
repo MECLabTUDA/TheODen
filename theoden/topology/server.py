@@ -97,6 +97,7 @@ class Server:
         watcher: list[Watcher] | None = None,
         rabbitmq: bool = True,
         ssl_context: ssl.SSLContext | None = None,
+        https: bool = False,
         **kwargs,
     ) -> None:
         """A federated learning server.
@@ -124,7 +125,7 @@ class Server:
             storage=None if storage_address else FileStorage(node_config=node_config),
             address=self.storage_address,
             port=self.storage_port,
-            https=False,
+            https=https,
             username=username or "server",
             password=password or "server",
         )

@@ -77,6 +77,7 @@ def start_server(
     ssl_certfile: str | None = None,
     rabbitmq: bool = False,
     ssl_context: ssl.SSLContext | None = None,
+    https: bool = False,
 ):
     GlobalContext().load_from_yaml(global_context)
 
@@ -96,6 +97,7 @@ def start_server(
         node_config=config,
         rabbitmq=rabbitmq,
         ssl_context=ssl_context,
+        https=https,
     )
     if not e.rabbitmq:
         uvicorn.run(
