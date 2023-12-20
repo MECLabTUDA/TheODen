@@ -1,10 +1,10 @@
-import torch
-
 import random
 
-from .augmentation import Augmentation
+import torch
+
 from ....common import Transferable
 from ..sample import Sample
+from .augmentation import Augmentation
 
 
 class RandomFlippingAugmentation(Augmentation, Transferable):

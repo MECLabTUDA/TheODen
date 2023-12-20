@@ -1,6 +1,6 @@
 from ....common import Transferable
-from ..meta.sequential import SequentialCommand
 from ..action import TrainRoundCommand, ValidateEpochCommand
+from ..meta.sequential import SequentialCommand
 
 
 class TrainValNTimesCommand(

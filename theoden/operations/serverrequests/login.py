@@ -1,5 +1,5 @@
+from ...common import ExecutionResponse, Transferable
 from .request import ServerRequest
-from ...common import Transferable, ExecutionResponse
 
 
 class LoginRequest(ServerRequest, Transferable):

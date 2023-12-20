@@ -1,17 +1,17 @@
-from torch.utils.data import Dataset
-import numpy as np
-import tqdm
-from torchvision.transforms import ToTensor
-import torch
-from PIL import Image
-import tifffile
-
-from typing import Literal
 import re
 from pathlib import Path
+from typing import Literal
 
-from ...resources.data import DatasetAdapter, Sample
+import numpy as np
+import tifffile
+import torch
+import tqdm
+from PIL import Image
+from torch.utils.data import Dataset
+from torchvision.transforms import ToTensor
+
 from ...common import Transferable
+from ...resources.data import DatasetAdapter, Sample
 
 
 class WSIDataset(Dataset, Transferable, is_base_type=True):

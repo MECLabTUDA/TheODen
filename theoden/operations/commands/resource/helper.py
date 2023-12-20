@@ -1,8 +1,7 @@
 import json
 
-from .. import Command
 from ....common import ExecutionResponse, Transferable
-from ....resources import ResourceManager
+from .. import Command
 
 
 class PrintResourceKeysCommand(Command, Transferable):

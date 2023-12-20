@@ -1,8 +1,8 @@
 import torchvision.transforms as transforms
 import torchvision.transforms.autoaugment as autoaugment
 from torchvision.transforms import Compose as Compose
+
 from ....common import Transferable, Transferables
-from .augmentation import Augmentation
 from .. import Sample
 from .augmentation import Augmentation
 

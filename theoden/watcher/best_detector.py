@@ -1,9 +1,9 @@
 from typing import Literal
 
 from ..common import Transferable
+from ..resources import Loss
 from .metric_collector import MetricCollectionWatcher, Watcher
 from .notifications import MetricNotification, NewBestModelNotification
-from ..resources import Loss
 
 
 class NewBestDetectorWatcher(MetricCollectionWatcher, Transferable):

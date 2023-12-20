@@ -1,12 +1,8 @@
-from .. import (
-    Initializer,
-    InitGlobalModelAction,
-    ClosedDistribution,
-)
-from .bundle import InstructionBundle
-from ...commands import *
-from ....resources import *
 from ....common import Transferable
+from ....resources import *
+from ...commands import *
+from .. import ClosedDistribution, InitGlobalModelAction, Initializer
+from .bundle import InstructionBundle
 
 
 class DefaultTrainingInitInstructionBundle(InstructionBundle, Transferable):

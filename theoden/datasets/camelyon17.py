@@ -3,8 +3,8 @@ from torchvision.transforms import Compose, ToTensor
 
 from theoden.resources.data.sample import Sample
 
-from ..resources.data import DatasetAdapter, Sample
 from ..common import GlobalContext, Transferable
+from ..resources.data import DatasetAdapter, Sample
 
 
 class Camelyon17_Adapted(DatasetAdapter, Transferable):

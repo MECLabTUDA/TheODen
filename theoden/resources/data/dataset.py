@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from torch.utils.data import Dataset, DataLoader
-import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
-
+import json
 from abc import ABC
 from pathlib import Path
-import json
 from typing import TYPE_CHECKING
 
-from .sample import Sample, sample_collate, Batch
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+from torch.utils.data import DataLoader, Dataset
+
 from ...common import GlobalContext, Transferable
 from ...common.utils import hash_dict
+from .sample import Batch, Sample, sample_collate
 
 if TYPE_CHECKING:
     from .concat import ConcatSampleDataset

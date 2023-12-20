@@ -1,6 +1,6 @@
-from . import SetResourceCommand
 from ....common import Transferable
-from ....resources.training import LRScheduler, Scheduler, Optimizer
+from ....resources.training import LRScheduler, Optimizer, Scheduler
+from . import SetResourceCommand
 
 
 class SetLRSchedulerCommand(SetResourceCommand, Transferable):

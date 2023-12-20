@@ -1,9 +1,8 @@
-from typing import TYPE_CHECKING
 from abc import ABC, abstractmethod
 
 from ...common import Transferable
-from ...topology import Topology
 from ...resources import ResourceManager
+from ...topology import Topology
 
 
 class Condition(ABC, Transferable, is_base_type=True):

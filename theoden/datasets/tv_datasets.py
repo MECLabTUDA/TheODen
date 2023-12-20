@@ -1,24 +1,16 @@
-from torchvision.datasets import (
+import torch
+from torchvision.datasets import (  # SVHN,; FashionMNIST,; LSUN,; STL10,; KMNIST,; Places365,; ImageNet,
     CIFAR10,
     CIFAR100,
-    # SVHN,
     MNIST,
-    # FashionMNIST,
-    # LSUN,
-    # STL10,
-    # KMNIST,
-    # Places365,
-    # ImageNet,
     CelebA,
+    VisionDataset,
 )
 from torchvision.transforms import ToTensor
-from torchvision.datasets import VisionDataset
-import torch
 
-
+from ..common import GlobalContext, Transferable
 from ..resources.data.dataset import DatasetAdapter
 from ..resources.data.sample import Sample
-from ..common import Transferable, GlobalContext
 
 
 class TorchvisionAdapter(DatasetAdapter):

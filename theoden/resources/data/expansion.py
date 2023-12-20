@@ -1,5 +1,5 @@
-from .dataset import SampleDataset
 from ...common import Transferable
+from .dataset import SampleDataset
 
 
 class ExpansionDataset(SampleDataset, Transferable):

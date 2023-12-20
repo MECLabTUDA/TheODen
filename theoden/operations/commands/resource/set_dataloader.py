@@ -1,5 +1,5 @@
+from ....common import ExecutionResponse, Transferable
 from ..command import Command
-from ....common import Transferable, ExecutionResponse
 
 
 class SetDataLoaderCommand(Command, Transferable):

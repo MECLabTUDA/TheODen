@@ -1,7 +1,7 @@
 from copy import deepcopy
 
-from theoden.operations.commands.command import Command
 from theoden.common import Transferable
+from theoden.operations.commands.command import Command
 from theoden.operations.commands.meta.sequential import SequentialCommand
 
 

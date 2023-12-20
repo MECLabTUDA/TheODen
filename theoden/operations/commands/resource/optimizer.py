@@ -1,7 +1,7 @@
+from ....common import Transferable
+from ....resources import Model, Optimizer, Optimizer_, ResourceManager
 from ....topology import Topology
 from . import SetResourceCommand
-from ....common import Transferable
-from ....resources import Optimizer_, Optimizer, Model, ResourceManager
 
 
 class SetOptimizerCommand(SetResourceCommand, Transferable):

@@ -1,20 +1,18 @@
 from __future__ import annotations
+
 import json
 import logging
 from abc import ABC, abstractmethod
-from theoden.operations.commands import Command
 
-from theoden.resources import ResourceManager
-from theoden.topology import Topology
-
-from ...topology import Topology, NodeStatus
-from .selection import Selector, AllSelector
-from .. import CommandDistributionStatus
+from ...common import StatusUpdate, Transferable, to_list
 from ...resources import ResourceManager
-from .error import DistributionErrorHandler
-from ...common import Transferable, StatusUpdate, to_list
+from ...topology import NodeStatus, Topology
+from ...watcher import CommandFinishedNotification, StatusUpdateNotification
+from .. import CommandDistributionStatus
 from ..commands import Command, SequentialCommand
+from .error import DistributionErrorHandler
 from .instruction import Instruction, InstructionStatus
+from .selection import AllSelector, Selector
 
 
 class DistributionStatusTable(dict[str, dict[str, CommandDistributionStatus] | None]):
@@ -499,6 +497,11 @@ class Distribution(Instruction, Transferable, is_base_type=True):
                     instruction_uuid=self.uuid,
                 )
 
+            # Notify all watchers about the status update
+            resource_manager.watcher.notify_all(
+                StatusUpdateNotification(status_update=status_update)
+            )
+
             # if a node is finished, add and remove flags
             if self.dist_table.node_finished(node_name):
                 for flag in self.set_flag_after_execution:
@@ -514,13 +517,11 @@ class Distribution(Instruction, Transferable, is_base_type=True):
                     instruction_uuid=self.uuid,
                 )
 
-            from ...watcher import CommandFinishedNotification
-
-            resource_manager.watcher.notify_all(
-                notification=CommandFinishedNotification(
-                    command_uuid=status_update.command_uuid
+                resource_manager.watcher.notify_all(
+                    notification=CommandFinishedNotification(
+                        command_uuid=status_update.command_uuid
+                    )
                 )
-            )
 
         except KeyError:
             logging.warning(

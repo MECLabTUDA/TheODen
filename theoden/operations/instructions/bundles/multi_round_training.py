@@ -1,17 +1,17 @@
-from ..instruction import Instruction
-from .bundle import InstructionBundle
-from .default_aggregation import DefaultAggregationBundle
-from ..selection import BinarySelector
-from ..distribution import ClosedDistribution
-from ..aggregation.aggregate import Aggregator
-from ...commands import (
-    TrainValNTimesCommand,
-    ValidateEpochCommand,
-    SequentialCommand,
-    LoadStateDictCommand,
-)
 from ....common import Transferable
 from ....resources import StateLoader
+from ...commands import (
+    LoadStateDictCommand,
+    SequentialCommand,
+    TrainValNTimesCommand,
+    ValidateEpochCommand,
+)
+from ..aggregation.aggregate import Aggregator
+from ..distribution import ClosedDistribution
+from ..instruction import Instruction
+from ..selection import BinarySelector
+from .bundle import InstructionBundle
+from .default_aggregation import DefaultAggregationBundle
 
 
 class MultiRoundTrainingInstructionBundle(InstructionBundle, Transferable):

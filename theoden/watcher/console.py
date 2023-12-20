@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, WebSocket
-from fastapi.websockets import WebSocketState
-from websockets.exceptions import ConnectionClosedOK
-from uvicorn import Config, Server
-from pydantic import BaseModel
-
+import asyncio
+import threading
 import time
 from queue import SimpleQueue
-import threading
-import asyncio
+
+from fastapi import FastAPI, WebSocket
+from fastapi.websockets import WebSocketState
+from pydantic import BaseModel
+from uvicorn import Config, Server
+from websockets.exceptions import ConnectionClosedOK
 
 from ..common import Transferable
 from .metric_collector import MetricCollectionWatcher, Watcher
 from .notifications import (
     InitializationNotification,
-    TopologyChangeNotification,
     StatusUpdateNotification,
+    TopologyChangeNotification,
 )
 
 app = FastAPI()

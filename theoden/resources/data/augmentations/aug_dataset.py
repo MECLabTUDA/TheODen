@@ -1,12 +1,11 @@
+import random
+
 import numpy as np
 import torch
 
-import random
-
-from .. import Sample
-from . import Augmentation, IdentityAugmentation
-from .. import SampleDataset
 from ....common import Transferable
+from .. import Sample, SampleDataset
+from . import Augmentation, IdentityAugmentation
 
 
 class AugmentationDataset(SampleDataset, Transferable):

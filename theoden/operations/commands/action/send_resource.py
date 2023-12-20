@@ -1,15 +1,14 @@
-from .. import Command
-from ....common import Transferable, ExecutionResponse, ResourceResponse
-from ....topology import Topology
+from ....common import ExecutionResponse, ResourceResponse, Transferable
 from ....resources import (
-    ResourceManager,
     Model,
-    Optimizer,
-    TorchStateLoader,
-    StateLoader,
     NumpyStateLoader,
+    Optimizer,
+    ResourceManager,
+    StateLoader,
 )
 from ....resources.meta import DictCheckpoint
+from ....topology import Topology
+from .. import Command
 
 
 class SendCheckpointToServerCommand(Command):

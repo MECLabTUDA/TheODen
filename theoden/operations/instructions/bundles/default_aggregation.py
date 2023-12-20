@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-
-from ..aggregation.aggregate import Aggregator, AggregationAction
+from ....common import Transferable
+from ....resources import StateLoader
+from ...commands import *
+from ..aggregation.aggregate import AggregationAction, Aggregator
+from ..bundles import InstructionBundle
 from ..distribution import ClosedDistribution
 from ..error import DistributionErrorHandler
 from ..selection import BinarySelector
-from ...commands import *
-from ....common import Transferable
-from ..bundles import InstructionBundle
-from ....resources import StateLoader
 
 
 class DefaultAggregationBundle(InstructionBundle, Transferable):

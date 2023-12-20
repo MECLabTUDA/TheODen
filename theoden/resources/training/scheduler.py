@@ -1,9 +1,8 @@
-import torch.optim.lr_scheduler as lr_scheduler
-from torch.optim.lr_scheduler import LRScheduler, LambdaLR
 import numpy as np
+import torch.optim.lr_scheduler as lr_scheduler
+from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
 from ...common import Transferable
-
 
 # Get all scheduler classe
 # Transferable.make_transferable(lr_scheduler.LRScheduler, is_base_type=True)

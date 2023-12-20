@@ -1,12 +1,9 @@
-from tqdm import tqdm
 import torch
+from tqdm import tqdm
 
-from collections import Counter
-
-from typing import Optional
-from ....common import Transferable, ExecutionResponse
-from ..command import Command
+from ....common import ExecutionResponse, Transferable
 from ....resources.data.dataset import SampleDataset
+from ..command import Command
 
 
 class InspectLabelDistributionCommand(Command, Transferable):

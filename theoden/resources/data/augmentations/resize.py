@@ -1,9 +1,9 @@
 import numpy as np
 from torchvision.transforms import Resize
 
-from .augmentation import Augmentation
 from ....common import Transferable
 from ..sample import Sample
+from .augmentation import Augmentation
 
 
 class ResizeAugmentation(Augmentation, Transferable):

@@ -1,24 +1,23 @@
 from __future__ import annotations
 
+import asyncio
+import json
+import ssl
+from functools import partial
+from typing import TYPE_CHECKING
+
 import pika
 
-
-from typing import TYPE_CHECKING
-import json
-import asyncio
-from functools import partial
-
 from ..common import (
-    Transferables,
-    StatusUpdate,
-    TransmissionStatusUpdate,
     ExecutionResponse,
+    StatusUpdate,
     Transferable,
+    Transferables,
+    TransmissionStatusUpdate,
 )
+from ..operations import PullCommandRequest, ServerRequest
 from .interface import NodeInterface
 from .storage import FileStorageInterface
-from ..operations import ServerRequest
-
 
 if TYPE_CHECKING:
     from ..topology.server import Server
@@ -43,12 +42,15 @@ class ServerToMQInterface:
         username: str,
         password: str,
         purge_queues: bool = True,
+        ssl_context: ssl.SSLContext | None = None,
         **kwargs,
     ):
+        self.storage_interface = None
         self.server = server
         self.host = host
         self.port = port
         self.purge_queues = purge_queues
+        self.ssl_context = ssl_context
 
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters(
@@ -56,7 +58,9 @@ class ServerToMQInterface:
                 port=self.port,
                 credentials=pika.PlainCredentials(username=username, password=password),
                 heartbeat=0,
-                virtual_host="theoden",
+                ssl_options=pika.SSLOptions(ssl_context, server_hostname=self.host)
+                if ssl_context
+                else None,
             )
         )
         self.channel = self.connection.channel()
@@ -65,17 +69,33 @@ class ServerToMQInterface:
         self.clients = self.server.topology.client_names
 
         for client in self.clients:
-            self.channel.queue_declare(queue=f"client_queue_{client}")
-            self.channel.queue_declare(queue=f"server_queue_{client}")
+            self.channel.exchange_declare(
+                exchange=f"{client}_exchange",
+                exchange_type="direct",
+                durable=True,
+            )
+
+            self.channel.queue_declare(queue=f"{client}_client_queue")
+            self.channel.queue_declare(queue=f"{client}_server_queue")
+
+            self.channel.queue_bind(
+                exchange=f"{client}_exchange", queue=f"{client}_client_queue"
+            )
+
+            self.channel.queue_bind(
+                exchange=f"{client}_exchange", queue=f"{client}_server_queue"
+            )
+
+            # Purge the queues to remove any old messages
+            if self.purge_queues:
+                self.channel.queue_purge(queue=f"{client}_client_queue")
+                self.channel.queue_purge(queue=f"{client}_server_queue")
 
             self.channel.basic_consume(
-                queue=f"server_queue_{client}",
+                queue=f"{client}_server_queue",
                 on_message_callback=partial(self._on_response, client_name=client),
                 auto_ack=True,
             )
-
-        if self.purge_queues:
-            self.remove_all_messages()
 
     def init(self):
         self.channel.start_consuming()
@@ -84,17 +104,10 @@ class ServerToMQInterface:
         asyncio.run(self.start())
 
     async def start(self):
-        print("Server started consuming")
         self.channel.start_consuming()
 
     def add_storage_interface(self, storage_interface: FileStorageInterface) -> None:
-        print("Added storage interface")
         self.storage_interface = storage_interface
-
-    def remove_all_messages(self):
-        for client in self.clients:
-            self.channel.queue_purge(queue=f"server_queue_{client}")
-            self.channel.queue_purge(queue=f"client_queue_{client}")
 
     def _on_response(self, ch, method, props, body, client_name: str):
         """Callback function for when a response is received from the server.
@@ -109,7 +122,7 @@ class ServerToMQInterface:
         # Get the response
         response = json.loads(body)
 
-        from ..topology.topology import NodeStatus, Node, NodeType
+        from ..topology.topology import Node, NodeStatus, NodeType
 
         # check if serverrequest or status update
         try:
@@ -127,8 +140,6 @@ class ServerToMQInterface:
 
         # try:
         if response["message_type"] == "ServerRequest":
-            # check if client is registered
-
             # get message datatype
             request = (
                 Transferables()
@@ -140,14 +151,16 @@ class ServerToMQInterface:
                 .set_server(self.server)
             )
 
+            server_response = self.server.process_server_request(request).dict()
+
             response = ServerRequestResponse(
                 request_uuid=request.uuid,
-                response=self.server.process_server_request(request).dict(),
+                response=server_response,
             )
 
             self.channel.basic_publish(
-                exchange="",
-                routing_key=f"client_queue_{client_name}",
+                exchange=f"{client_name}_exchange",
+                routing_key=f"{client_name}_client_queue",
                 body=transform_dict(
                     response.dict(),
                     "ServerRequestResponse",
@@ -156,8 +169,6 @@ class ServerToMQInterface:
             )
 
         elif response["message_type"] == "StatusUpdate":
-            # print("Received response:", response)
-
             status_update = TransmissionStatusUpdate(**response["data"])
 
             status_update.node_name = node.name
@@ -188,49 +199,79 @@ class ClientToMQInterface(NodeInterface):
         username: str,
         password: str,
         ping_interval: int = 1,
+        ssl_context: ssl.SSLContext | None = None,
     ):
-        self.command_queue = command_queue
+        super().__init__(command_queue=command_queue, ping_interval=ping_interval)
         self.host = host
         self.port = port
         self.username = username
         self.password = password
-        self.ping_interval = ping_interval
         self.node_name = username
+        self.ssl_context = ssl_context
+        self.storage_interface = None
 
-        self.connection = pika.BlockingConnection(
+        self.client_queue_name = f"{self.username}_client_queue"
+        self.server_queue_name = f"{self.username}_server_queue"
+
+        # as two threads can send requests simultaneously, we need two channels (one for each thread)
+        self.request_channel = self._build_connection(with_consume=True)
+        self.execute_channel = self._build_connection()
+
+    def _build_connection(self, with_consume: bool = False) -> pika.channel.Channel:
+        """Builds a connection to the server.
+
+        Args:
+            with_consume (bool, optional): Whether to consume messages from the server. Defaults to False.
+
+        Returns:
+            pika.channel.Channel: The channel.
+        """
+
+        connection = pika.BlockingConnection(
             pika.ConnectionParameters(
                 host=self.host,
                 port=self.port,
-                credentials=pika.PlainCredentials(username=username, password=password),
+                credentials=pika.PlainCredentials(
+                    username=self.username, password=self.password
+                ),
                 heartbeat=0,
-                virtual_host="theoden",
+                ssl_options=pika.SSLOptions(self.ssl_context, server_hostname=self.host)
+                if self.ssl_context
+                else None,
             )
         )
-        self.channel = self.connection.channel()
+        channel = connection.channel()
 
-        # Define the response queue (client-specific)
-        self.client_queue_name = "client_queue_" + self.node_name
-        self.server_queue_name = "server_queue_" + self.node_name
-
-        self.channel.queue_declare(queue=self.client_queue_name)
-        self.channel.queue_declare(queue=self.server_queue_name)
-        self.channel.basic_consume(
-            queue=self.client_queue_name,
-            on_message_callback=self._on_response,
-            auto_ack=True,
+        channel.exchange_declare(
+            exchange=f"{self.node_name}_exchange",
+            exchange_type="direct",
+            durable=True,
         )
 
+        channel.queue_declare(queue=self.client_queue_name)
+        channel.queue_declare(queue=self.server_queue_name)
+
+        channel.queue_bind(
+            exchange=f"{self.node_name}_exchange", queue=self.client_queue_name
+        )
+
+        if with_consume:
+            channel.basic_consume(
+                queue=self.client_queue_name,
+                on_message_callback=self._on_response,
+                auto_ack=True,
+            )
+
         # Purge the queues to remove any old messages
-        self.channel.queue_purge(queue=self.client_queue_name)
-        self.channel.queue_purge(queue=self.server_queue_name)
+        channel.queue_purge(queue=self.client_queue_name)
+        channel.queue_purge(queue=self.server_queue_name)
+
+        return channel
 
     def start(self):
-        self.channel.start_consuming()
+        self.request_channel.start_consuming()
 
     def _pull(self):
-        # Make a GET serverrequests to the server to get the next command
-        from ..operations import PullCommandRequest
-
         self.send_server_request(PullCommandRequest())
 
     def add_storage_interface(self, storage_interface: FileStorageInterface) -> None:
@@ -249,8 +290,6 @@ class ClientToMQInterface(NodeInterface):
         # Get the response
         response = json.loads(body)
 
-        # print("Received response:", response)
-
         # get message datatype
         message_type = response["message_type"]
 
@@ -261,23 +300,33 @@ class ClientToMQInterface(NodeInterface):
                 ServerRequestResponse,
             )
 
-            # Get the request
-            # request = self._get_request_by_uuid(request_uuid)
-
-            # Get the response
+            # if the response contains a new command, add it to the command queue
             if response.response.data:
                 self.command_queue.append(response.response.data)
 
-    def send_server_request(self, request: ServerRequest) -> any:
-        self.channel.basic_publish(
-            exchange="",
+    def send_server_request(self, request: ServerRequest) -> None:
+        """Publishes a server request to the server queue.
+
+        Args:
+            request (ServerRequest): The server request to send.
+        """
+
+        self.request_channel.basic_publish(
+            exchange=f"{self.node_name}_exchange",
             routing_key=self.server_queue_name,
             body=transform_dict(request.dict(), "ServerRequest"),
         )
 
-    def send_status_update(self, status_update: StatusUpdate) -> any:
+    def send_status_update(self, status_update: StatusUpdate) -> None:
+        """Sends a status update to the server.
+
+        Args:
+            status_update (StatusUpdate): The status update to send.
+        """
+
         resource_uuids = {}
 
+        # Upload all files in the status update
         if status_update.contains_files():
             resource_uuids.update(
                 self.storage_interface.upload_resources(
@@ -285,8 +334,9 @@ class ClientToMQInterface(NodeInterface):
                 )
             )
 
-        self.channel.basic_publish(
-            exchange="",
+        # publish status update in the server queue
+        self.execute_channel.basic_publish(
+            exchange=f"{self.node_name}_exchange",
             routing_key=self.server_queue_name,
             body=transform_dict(
                 status_update.unload(resource_uuids).dict(), "StatusUpdate"

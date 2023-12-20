@@ -3,7 +3,7 @@ from torch.utils.data import ConcatDataset
 from theoden.common.transferables import Transferable
 
 from ...common import Transferable
-from .dataset import WrapperSampleDataset, SampleDataset
+from .dataset import SampleDataset, WrapperSampleDataset
 from .metadata_set import MetadataWrapperDataset
 
 

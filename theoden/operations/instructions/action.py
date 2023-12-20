@@ -1,7 +1,7 @@
-from .instruction import Instruction, InstructionStatus
 from ...common import Transferable
 from ...resources import ResourceManager
 from ...topology import Topology
+from .instruction import Instruction, InstructionStatus
 
 
 class Action(Instruction, Transferable, is_base_type=True):

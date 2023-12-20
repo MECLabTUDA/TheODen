@@ -1,8 +1,8 @@
-import torch
-import numpy as np
-
 import io
 import tempfile
+
+import numpy as np
+import torch
 
 from ...common import Transferable
 
@@ -69,8 +69,9 @@ class TensorflowStateLoader(StateLoader):
 
     @staticmethod
     def load(model_bytes: bytes):
-        import tensorflow as tf
         import pickle
+
+        import tensorflow as tf
 
         buffer = io.BytesIO(model_bytes)
         # Deserialize the bytes into a dictionary
@@ -91,8 +92,9 @@ class TensorflowLiteV1StateLoader(StateLoader):
         import os
 
         os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-        import tensorflow as tf
         import os
+
+        import tensorflow as tf
 
         with tempfile.TemporaryDirectory() as temp_dir:
             checkpoint_path = os.path.join(temp_dir, "model_checkpoint.ckpt")

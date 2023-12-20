@@ -1,25 +1,25 @@
 from __future__ import annotations
 
+import ssl
 import time
 
-from ..operations import *
 from ..common import (
+    ExecutionResponse,
+    ForbiddenOperationError,
     StatusUpdate,
     Transferable,
     Transferables,
-    ForbiddenOperationError,
-    ExecutionResponse,
 )
+from ..networking.rabbitmq import ServerToMQInterface
+from ..networking.rest import RestServerInterface
+from ..networking.storage import FileStorage, FileStorageInterface
+from ..operations import *
 from ..resources import ResourceManager
 from ..resources.meta import CheckpointManager
-from .topology import Topology, Node, NodeStatus, NodeType
-from .client_status import TimeoutClientStatusObserver
-from ..networking.storage import FileStorage, FileStorageInterface
-from ..networking.rest import RestServerInterface
-from ..networking.rabbitmq import ServerToMQInterface
-from ..security.operation_protection import OperationWhiteList, OperationBlackList
+from ..security.operation_protection import OperationBlackList, OperationWhiteList
 from ..watcher import *
-
+from .client_status import TimeoutClientStatusObserver
+from .topology import Node, NodeStatus, NodeType, Topology
 
 operation_manager_types = list[Instruction | InstructionBundle | Condition] | None
 
@@ -96,6 +96,7 @@ class Server:
         operation_protection: OperationWhiteList | OperationBlackList | None = None,
         watcher: list[Watcher] | None = None,
         rabbitmq: bool = True,
+        ssl_context: ssl.SSLContext | None = None,
         **kwargs,
     ) -> None:
         """A federated learning server.
@@ -176,6 +177,7 @@ class Server:
                 port=communication_port or 5672,
                 username=username,
                 password=username,
+                ssl_context=ssl_context,
                 **kwargs,
             )
         else:
@@ -232,9 +234,4 @@ class Server:
         # Process the status update with the first operation in the operations list
         self.operations[0].handle_status_update(
             status_update, self.topology, self.resources
-        )
-
-        # Notify all watchers about the status update
-        self.resources.watcher.notify_all(
-            StatusUpdateNotification(status_update=status_update)
         )

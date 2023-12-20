@@ -1,8 +1,8 @@
-import torch
-import tqdm
-
 import random
 from abc import ABC, abstractmethod
+
+import torch
+import tqdm
 
 from ....common import Transferable
 from .. import SampleDataset

@@ -2,7 +2,7 @@ from itertools import chain
 
 from ..common import Transferable
 from .metric_collector import MetricCollectionWatcher, Watcher
-from .notifications import MetricNotification, CommandFinishedNotification
+from .notifications import CommandFinishedNotification, MetricNotification
 
 
 class MetricAggregationWatcher(MetricCollectionWatcher, Transferable):

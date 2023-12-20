@@ -1,8 +1,8 @@
+from ....common import ExecutionResponse, StatusUpdate, Transferable
 from ....resources import ResourceManager
 from ....topology import Topology
-from .. import Command
 from ... import CommandExecutionStatus, Condition
-from ....common import Transferable, ExecutionResponse, StatusUpdate
+from .. import Command
 
 
 class ConditionalCommand(Command, Transferable):

@@ -1,15 +1,13 @@
-from typing import TYPE_CHECKING, Optional
-
-from .request import ServerRequest
-from ...common import Transferable, ExecutionResponse
+from ...common import ExecutionResponse, Transferable
+from ..condition import Condition
 from ..instructions import (
-    InstructionStatus,
-    Instruction,
     Action,
     Distribution,
+    Instruction,
     InstructionBundle,
+    InstructionStatus,
 )
-from ..condition import Condition
+from .request import ServerRequest
 
 
 class PullCommandRequest(ServerRequest, Transferable):

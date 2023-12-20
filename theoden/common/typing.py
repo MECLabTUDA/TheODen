@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, TypeVar, Type, Generic
 import json
 from enum import Enum
-from typing import Union
+from typing import Any, Generic, Type, TypeVar, Union
 from uuid import UUID
 
 from pydantic import BaseModel, validator
+
 from .transferables import Transferables
 
 

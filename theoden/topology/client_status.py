@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING
-from abc import ABC, abstractmethod
-import time
 import logging
+import time
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .topology import Topology

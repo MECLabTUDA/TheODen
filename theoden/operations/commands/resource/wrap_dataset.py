@@ -1,5 +1,5 @@
-from ..command import Command
 from ....resources import SampleDataset
+from ..command import Command
 
 
 class WrapDatasetCommand(Command):

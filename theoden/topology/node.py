@@ -1,22 +1,23 @@
 # import torch.multiprocessing as mp
-from multiprocessing import Process, Manager
-import requests
 import asyncio
+import ssl
+from multiprocessing import Manager, Process
+
+import requests
 
 from ..common import (
-    Transferables,
-    StatusUpdate,
-    ServerRequestError,
-    UnauthorizedError,
     ForbiddenOperationError,
+    ServerRequestError,
+    StatusUpdate,
+    Transferables,
+    UnauthorizedError,
 )
-from ..operations import Command
-from ..resources.resource import ResourceManager
-from ..networking.storage import FileStorageInterface
-from ..networking.rest import RestNodeInterface
 from ..networking.rabbitmq import ClientToMQInterface
-from ..security.operation_protection import OperationWhiteList, OperationBlackList
-from ..operations import ServerRequest
+from ..networking.rest import RestNodeInterface
+from ..networking.storage import FileStorageInterface
+from ..operations import Command, ServerRequest
+from ..resources.resource import ResourceManager
+from ..security.operation_protection import OperationBlackList, OperationWhiteList
 
 
 class Node:
@@ -31,6 +32,7 @@ class Node:
         ping_interval: float = 1.0,
         rabbitmq: bool = True,
         ssl: bool = False,
+        ssl_context: ssl.SSLContext | None = None,
         operation_protection: OperationWhiteList | OperationBlackList | None = None,
     ) -> None:
         """A federated learning node.
@@ -74,6 +76,8 @@ class Node:
                 port=communication_port or 5672,
                 username=username,
                 password=password,
+                ping_interval=ping_interval,
+                ssl_context=ssl_context,
             )
         else:
             self.network_interface = RestNodeInterface(

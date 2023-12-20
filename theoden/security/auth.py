@@ -1,8 +1,10 @@
+import logging
+import urllib.parse
+from enum import Enum
+from uuid import UUID, uuid4
+
 import requests
 import yaml
-from enum import Enum
-import logging
-from uuid import UUID, uuid4
 
 from ..common import UnauthorizedError
 from .hash import hash_value, verify_hash
@@ -150,7 +152,7 @@ class AuthenticationManager:
         api_url: str = "http://localhost:15672/api",
         api_user: str = "guest",
         api_password: str = "guest",
-        vhost: str = "theoden",
+        vhost: str = "",
     ):
         with open(yaml_file, "r") as file:
             users = yaml.safe_load(file)
@@ -192,7 +194,7 @@ class AuthenticationManager:
         api_url: str = "http://localhost:15672/api",
         api_user: str = "guest",
         api_password: str = "guest",
-        vhost: str = "theoden",
+        vhost: str = "/",
     ):
         """
         Create a RabbitMQ user and set permissions based on the user's role.
@@ -228,23 +230,23 @@ class AuthenticationManager:
         elif response.status_code == 204:
             print(f"RabbitMQ user '{username}' already exists.")
         else:
+            print(response.reason)
             print(
                 f"Failed to create RabbitMQ user '{username}'. Status code: {response.status_code}"
             )
-        regex_pattern = f"^(client_queue_{username}|server_queue_{username})"
+        regex_pattern = f"{username}.*"
         # Set permissions for the user
         permissions_data = (
             {"configure": ".*", "write": ".*", "read": ".*"}
             if role == UserRole.SERVER
-            else {"configure": ".*", "write": ".*", "read": ".*"}
-            # {
-            #     "configure": regex_pattern,
-            #     "write": regex_pattern,
-            #     "read": regex_pattern,
-            # }
+            else {
+                "configure": regex_pattern,
+                "write": regex_pattern,
+                "read": regex_pattern,
+            }
         )
 
-        permissions_url = f"{api_url}/permissions/{vhost}/{username}"
+        permissions_url = f"{api_url}/permissions/%2F{urllib.parse.quote(vhost)}/{urllib.parse.quote(username)}"
 
         response = requests.put(
             permissions_url,

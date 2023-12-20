@@ -1,10 +1,10 @@
 from ..common import Transferable
-from .watcher import Watcher
 from .notifications import (
-    WatcherNotification,
-    StatusUpdateNotification,
     MetricNotification,
+    StatusUpdateNotification,
+    WatcherNotification,
 )
+from .watcher import Watcher
 
 
 class MetricCollectionWatcher(Watcher, Transferable):

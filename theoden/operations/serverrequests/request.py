@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from uuid import uuid4
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+from uuid import uuid4
 
-from ...common import Transferable, ExecutionResponse
-from ...topology import Topology
+from ...common import ExecutionResponse, Transferable
 from ...resources import ResourceManager
+from ...topology import Topology
 
 if TYPE_CHECKING:
     from theoden.topology.server import Server

@@ -1,10 +1,10 @@
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from theoden.resources import ResourceManager
 from theoden.topology import Topology
 
+from ....common import ExecutionResponse, Transferable
 from .. import Command
-from ....common import Transferable, ExecutionResponse
 
 
 class SequentialCommand(Command, Transferable):

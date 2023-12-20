@@ -1,8 +1,8 @@
 from tiatoolbox.tools.stainaugment import StainAugmentor
 
-from .augmentation import Augmentation
 from ....common import Transferable
 from ..sample import Sample
+from .augmentation import Augmentation
 
 
 class StainAugmentation(Augmentation, Transferable):

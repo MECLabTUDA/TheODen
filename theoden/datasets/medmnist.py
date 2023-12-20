@@ -1,8 +1,8 @@
 import torch
 from torchvision.transforms import Compose, ToTensor
 
-from ..resources.data import DatasetAdapter, Sample
 from ..common import GlobalContext, Transferable
+from ..resources.data import DatasetAdapter, Sample
 
 
 class MedMNISTAdapter(DatasetAdapter):

@@ -1,9 +1,9 @@
 from typing import Any
 
-from .condition import Condition
 from ...common import Transferable
-from ...topology import Topology
 from ...resources import ResourceManager
+from ...topology import Topology
+from .condition import Condition
 
 
 class HasResourceCondition(Condition, Transferable):

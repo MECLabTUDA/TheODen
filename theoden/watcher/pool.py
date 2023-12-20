@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 import logging
+from typing import TYPE_CHECKING
 
 from .notifications import WatcherNotification
 from .watcher import Watcher
 
 if TYPE_CHECKING:
-    from ..topology.server import Server
     from ..topology.node import Node
+    from ..topology.server import Server
 
 
 class WatcherPool:

@@ -1,13 +1,13 @@
-from aim import Run, Figure, Image
-
 import logging
+
+from aim import Figure, Image, Run
 
 from ..common import Transferable
 from .metric_collector import MetricCollectionWatcher, Watcher
 from .notifications import (
+    InitializationNotification,
     MetricNotification,
     ParameterNotification,
-    InitializationNotification,
     TopologyChangeNotification,
 )
 

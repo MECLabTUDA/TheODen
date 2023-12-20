@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from enum import IntEnum, auto
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from ...common import Transferable
-from ...topology import Topology
 from ...resources import ResourceManager
 from ...resources.resource import is_instance_of_type_hint
+from ...topology import Topology
+
+if TYPE_CHECKING:
+    from .bundles import InstructionBundle
 
 
 class InstructionStatus(IntEnum):

@@ -1,5 +1,6 @@
-import yaml
 import multiprocessing
+
+import yaml
 
 from .singleton import SingletonMeta
 

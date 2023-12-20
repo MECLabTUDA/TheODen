@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from docstring_parser import parse
-
-from dataclasses import dataclass
-import yaml
-from functools import partial
 import inspect
-from typing import TypeVar, Generic, Type, Literal, get_origin, get_args, Union
+from dataclasses import dataclass
+from functools import partial
+from typing import Generic, Literal, Type, TypeVar, Union, get_args, get_origin
+
+import yaml
+from docstring_parser import parse
 
 from .singleton import SingletonMeta
 from .utils import are_classes_from_same_package, hash_dict

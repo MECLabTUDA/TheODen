@@ -1,6 +1,6 @@
-from .. import Augmentation
-from ... import Sample
 from ..... import Transferable
+from ... import Sample
+from .. import Augmentation
 
 
 class IdentityAugmentation(Augmentation, Transferable):

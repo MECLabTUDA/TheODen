@@ -1,20 +1,20 @@
 from __future__ import annotations
 
+import logging
+from typing import Annotated
+from uuid import UUID, uuid4
+
 import fastapi
-from fastapi import FastAPI, Request, HTTPException, Depends, File, UploadFile, Body
+import requests
+from fastapi import Body, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, FileResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
-import logging
-from uuid import UUID, uuid4
-import requests
-from typing import Annotated
-
-from ..security.auth import UserRole, AuthenticationManager
-from ..security.token import create_access_token, decode_token
 from ..common import UnauthorizedError
+from ..security.auth import AuthenticationManager, UserRole
+from ..security.token import create_access_token, decode_token
 
 
 class UploadedItem(BaseModel):

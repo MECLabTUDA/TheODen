@@ -1,5 +1,5 @@
-from ....operations.commands.resource import SetResourceCommand
 from ....common import Transferable
+from ....operations.commands.resource import SetResourceCommand
 from ....resources.data import SampleDataset
 
 

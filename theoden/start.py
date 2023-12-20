@@ -1,18 +1,18 @@
-import uvicorn
 import logging
+import ssl
 from getpass import getpass
 
+import uvicorn
 
 from .common import GlobalContext
-from .operations import *
-from .resources import *
 from .datasets import *
 from .models import *
+from .networking import FileStorage
+from .operations import *
+from .resources import *
 from .topology import *
-from theoden.networking import FileStorage
-
-from .topology.server import Server
 from .topology.node import Node
+from .topology.server import Server
 
 
 def start_node(
@@ -26,6 +26,7 @@ def start_node(
     ping_interval: float = 0.2,
     rabbitmq: bool = False,
     ssl: bool = False,
+    ssl_context: ssl.SSLContext | None = None,
 ):
     GlobalContext().load_from_yaml(global_context)
     if username != "dummy" and password == "dummy":
@@ -40,6 +41,7 @@ def start_node(
         ping_interval=ping_interval,
         rabbitmq=rabbitmq,
         ssl=ssl,
+        ssl_context=ssl_context,
     )
     node.start()
 
@@ -74,6 +76,7 @@ def start_server(
     ssl_keyfile: str | None = None,
     ssl_certfile: str | None = None,
     rabbitmq: bool = False,
+    ssl_context: ssl.SSLContext | None = None,
 ):
     GlobalContext().load_from_yaml(global_context)
 
@@ -92,6 +95,7 @@ def start_server(
         communication_port=communication_port,
         node_config=config,
         rabbitmq=rabbitmq,
+        ssl_context=ssl_context,
     )
     if not e.rabbitmq:
         uvicorn.run(

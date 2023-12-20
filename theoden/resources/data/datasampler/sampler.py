@@ -1,12 +1,12 @@
-from torch.utils.data import Sampler, BatchSampler, WeightedRandomSampler
-import torch
-import tqdm
-
+import json
 from collections import Counter
 from pathlib import Path
-import json
 
-from ....common import Transferable, GlobalContext
+import torch
+import tqdm
+from torch.utils.data import BatchSampler, Sampler, WeightedRandomSampler
+
+from ....common import GlobalContext, Transferable
 from ..dataset import SampleDataset
 
 

@@ -1,10 +1,10 @@
 import itertools
 
+from ....common import GlobalContext, Transferable
 from ..dataset import SampleDataset
 from ..subset import SubsetDataset
-from ....common import Transferable, GlobalContext
 from .balancing import BalancingDistribution
-from .partitions import Partition, IndexPartition
+from .partitions import IndexPartition, Partition
 
 
 class PartitionDataset(SubsetDataset, Transferable, build=False):

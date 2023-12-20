@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+
 import torch
-from torch.nn import CrossEntropyLoss, Module
 import torch.nn.functional as F
 
 # from segmentation_models_pytorch.losses import DiceLoss as SMPDiceLoss
 from pytorch_toolbelt.losses import DiceLoss
+from torch.nn import CrossEntropyLoss, Module
 from torchmetrics import Dice
 from torchmetrics.classification import MulticlassConfusionMatrix
 
-from abc import ABC, abstractmethod
-
+from ...common import Transferable
 from ...resources.data.sample import Batch
 from ..data.sample import Batch
-from ...common import Transferable
 
 
 class Loss(ABC, Transferable, is_base_type=True):

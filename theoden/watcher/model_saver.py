@@ -1,12 +1,9 @@
 from pathlib import Path
 
-from ..common import Transferable, GlobalContext
-from .watcher import Watcher
-from .notifications import (
-    NewBestModelNotification,
-    InitializationNotification,
-)
+from ..common import GlobalContext, Transferable
 from ..resources import Loss
+from .notifications import InitializationNotification, NewBestModelNotification
+from .watcher import Watcher
 
 
 class ModelSaverWatcher(Watcher, Transferable):

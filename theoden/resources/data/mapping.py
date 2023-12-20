@@ -1,8 +1,8 @@
 import numpy as np
 
 from ...common import Transferable
-from .sample import Sample
 from .dataset import SampleDataset
+from .sample import Sample
 
 
 class Mapping(Transferable, is_base_type=True):

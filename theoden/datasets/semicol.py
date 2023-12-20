@@ -1,5 +1,5 @@
-from .shared.wsi_loader import AdaptedTiledWSIDataset, WSIDataset, Tiling
-from ..common import Transferable, GlobalContext
+from ..common import GlobalContext, Transferable
+from .shared.wsi_loader import AdaptedTiledWSIDataset, Tiling, WSIDataset
 
 
 class SemiCOLDataset(AdaptedTiledWSIDataset, Transferable):

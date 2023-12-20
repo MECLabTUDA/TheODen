@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-
 from collections import OrderedDict
-from typing import Any, Union, TypeVar, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Type, TypeVar
 
 from ..common.typing import is_instance_of_type_hint
 from ..networking import FileStorageInterface

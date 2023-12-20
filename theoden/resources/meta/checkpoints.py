@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import torch
-
 import io
 from copy import deepcopy
 
-from theoden.operations.commands import Command
-from ..resource import ResourceManager
+import torch
+
 from ...operations.commands import (
     Command,
-    LoadStateDictCommand,
     LoadOptimizerStateDictCommand,
+    LoadStateDictCommand,
 )
+from ..resource import ResourceManager
 
 
 class Checkpoint:
@@ -74,6 +73,14 @@ class BytesCheckpoint(Checkpoint):
             return self.data
         else:
             raise ValueError(f"Unsupported datatype {datatype}")
+
+
+class ErrorCheckpoint(Checkpoint):
+    def __init__(self, error: str) -> None:
+        self.error = error
+
+    def to(self, datatype: type) -> dict | bytes:
+        raise RuntimeError(self.error)
 
 
 class Checkpoints(ResourceManager):

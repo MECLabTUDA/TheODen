@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 from uuid import uuid4
-from abc import ABC, abstractmethod
 
-from ...topology import Topology
-from ...common import Transferable, StatusUpdate, ExecutionResponse
+from ...common import ExecutionResponse, StatusUpdate, Transferable
 from ...resources import ResourceManager
+from ...topology import Topology
 from ..status import CommandExecutionStatus
 
 if TYPE_CHECKING:

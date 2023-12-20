@@ -147,6 +147,6 @@ class FedOptAggregator(Aggregator, Transferable):
         return new_model
 
 
-class FedAvgAggregator(FedSGDServerOptimizer, Transferable):
+class FedAvgAggregator(FedOptAggregator, Transferable):
     def __init__(self, lr: float = 1.0):
-        super().__init__(lr=lr, beta=0)
+        super().__init__(FedSGDServerOptimizer(lr=lr, beta=0))

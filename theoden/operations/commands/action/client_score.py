@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from theoden.common import ExecutionResponse
-from theoden.resources import ResourceManager
-from theoden.topology import Topology
+from ....common import ClientScoreResponse, ExecutionResponse, Transferable
+from ....resources import ResourceManager, SampleDataset
+from ....topology import Topology
 from ..command import Command
-from ....common import ClientScoreResponse, Transferable
-from ....resources import SampleDataset
 
 
 class ClientScore(Transferable, is_base_type=True):

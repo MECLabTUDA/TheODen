@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from ..instruction import Instruction
-from ...condition import Condition
 from ....common import Transferable
+from ...condition import Condition
 from ..action import Action
 from ..distribution import Distribution
+from ..instruction import Instruction
 
 
 class InstructionBundle(Transferable, is_base_type=True):

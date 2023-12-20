@@ -1,9 +1,9 @@
 from ..operations import (
     Command,
-    ServerRequest,
+    Condition,
     Instruction,
     InstructionBundle,
-    Condition,
+    ServerRequest,
 )
 
 operations_types = Instruction | InstructionBundle | Condition | ServerRequest | Command

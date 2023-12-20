@@ -1,7 +1,7 @@
-import torch
-from torch.optim import Optimizer, SGD, Adam
+from typing import List, Optional, Type
 
-from typing import List, Type, Optional
+import torch
+from torch.optim import SGD, Adam, Optimizer
 
 from ...common import Transferable
 

@@ -1,10 +1,10 @@
 import numpy as np
 import torch
 
+from ...common import GlobalContext, Transferable
 from . import SampleDataset
-from ...common import Transferable, GlobalContext
-from .subset import SubsetDataset
 from .sample import Sample
+from .subset import SubsetDataset
 
 
 class Exclusion(Transferable, is_base_type=True):

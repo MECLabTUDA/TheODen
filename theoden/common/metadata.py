@@ -1,10 +1,10 @@
-import pandas as pd
-
 from collections import defaultdict
-from typing import Any, List, Dict, Optional, Union
+from copy import deepcopy
 from datetime import datetime
 from enum import Enum
-from copy import deepcopy
+from typing import Any, Dict, List, Optional, Union
+
+import pandas as pd
 
 from .utils import none_return
 

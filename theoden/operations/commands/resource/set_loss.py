@@ -1,9 +1,7 @@
-from theoden.resources import ResourceManager
-from theoden.topology import Topology
-from . import SetResourceCommand
-from ....common import ExecutionResponse, Transferable
+from ....common import Transferable
 from ....resources import Loss, ResourceManager
 from ....topology import Topology
+from . import SetResourceCommand
 
 
 class SetLossesCommand(SetResourceCommand, Transferable):

@@ -1,8 +1,8 @@
-from tqdm import tqdm
-import numpy as np
-
-from pathlib import Path
 import json
+from pathlib import Path
+
+import numpy as np
+from tqdm import tqdm
 
 from ...common import Transferable
 from .dataset import SampleDataset

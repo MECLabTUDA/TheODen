@@ -1,12 +1,17 @@
-import torch
-
 import io
 
-from ....common import Transferable, ExecutionResponse
+import torch
+
+from ....common import ExecutionResponse, Transferable
+from ....resources import (
+    Model,
+    NumpyStateLoader,
+    Optimizer,
+    ResourceManager,
+    StateLoader,
+)
 from ....topology import Topology
-from ....resources import ResourceManager, Model, Optimizer
 from .. import Command
-from ....resources import StateLoader, NumpyStateLoader
 
 
 class StorageCommand(Command, Transferable):

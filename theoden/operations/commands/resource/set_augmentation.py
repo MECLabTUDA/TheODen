@@ -1,7 +1,12 @@
-from .wrap_dataset import WrapDatasetCommand
+from typing import TYPE_CHECKING
+
 from ....common import Transferable
 from ....resources import Augmentation, AugmentationDataset
 from .. import Command
+from .wrap_dataset import WrapDatasetCommand
+
+if TYPE_CHECKING:
+    from ....operations import DistributionStatusTable
 
 
 class SetAugmentationCommand(WrapDatasetCommand, Transferable):

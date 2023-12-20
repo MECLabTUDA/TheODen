@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from ..common import Transferable
 from .notifications import WatcherNotification
 
-
 if TYPE_CHECKING:
-    from ..topology.server import Server
     from ..topology.node import Node
+    from ..topology.server import Server
     from .pool import WatcherPool
 
 

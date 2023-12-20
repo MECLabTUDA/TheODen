@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import time
+from enum import Enum
+from threading import Thread
+from typing import TYPE_CHECKING
+
 import matplotlib.pyplot as plt
 import networkx as nx
-
-from enum import Enum
-from typing import TYPE_CHECKING
-import time
-from threading import Thread
 import yaml
 
-from .client_status import ClientStatusObserver
 from ..resources import ResourceManager
+from ..watcher import TopologyChangeNotification
+from .client_status import ClientStatusObserver
 
 if TYPE_CHECKING:
     from ..operations import Distribution
@@ -95,9 +96,6 @@ class Topology:
                 lifecycle.handle_topology_change(
                     node_name, topology=self, resource_manager=self.resource_manager
                 )
-
-        from ..watcher import TopologyChangeNotification
-
         self.watcher.notify_all(TopologyChangeNotification(topology=self))
 
     def add_node(self, node: Node) -> Topology:

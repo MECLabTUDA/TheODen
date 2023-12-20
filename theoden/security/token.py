@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
-from jose import JWTError, jwt, ExpiredSignatureError
 from secrets import token_hex
 
-from ..common import UnauthorizedError
+from jose import ExpiredSignatureError, JWTError, jwt
 
+from ..common import UnauthorizedError
 
 # create a secret key for signing the JWT
 SECRET_KEY = token_hex(32)

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-import random
 import logging
+import random
+from abc import ABC, abstractmethod
 
 from ...common import Transferable
 from ...topology import Topology

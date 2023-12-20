@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from torch import nn
 
-from ..resources.training.model import TorchModel
 from ..common import Transferable
+from ..resources.training.model import TorchModel
 
 
 class TimmModel(TorchModel, Transferable):

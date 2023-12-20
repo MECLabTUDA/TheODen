@@ -1,21 +1,24 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import asyncio
+from abc import ABC, abstractmethod
 
 from ..common import (
-    StatusUpdate,
-    ServerRequestError,
-    UnauthorizedError,
     ExecutionResponse,
+    ServerRequestError,
+    StatusUpdate,
+    UnauthorizedError,
 )
-
-from ..operations import ServerRequest, PullCommandRequest
+from ..operations import PullCommandRequest, ServerRequest
 
 
 class NodeInterface(ABC):
+    def __init__(self, command_queue: list[dict], ping_interval: float = 1.0):
+        self.command_queue = command_queue
+        self.ping_interval = ping_interval
+
     @abstractmethod
-    def send_status_update(self, status_update: StatusUpdate) -> any:
+    def send_status_update(self, status_update: StatusUpdate) -> None:
         pass
 
     @abstractmethod
@@ -31,6 +34,7 @@ class NodeInterface(ABC):
             self._pull()
 
     def _pull(self):
+        """Pulls a command from the server and adds it to the command queue."""
         # Make a GET serverrequests to the server to get the next command
         try:
             response = self.send_server_request(PullCommandRequest())

@@ -1,4 +1,5 @@
-from typing import Any, Union, TypeVar
+from typing import Any, TypeVar, Union
+
 from ..resource import ResourceManager
 
 T = TypeVar("T")

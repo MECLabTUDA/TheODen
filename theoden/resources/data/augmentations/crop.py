@@ -1,8 +1,8 @@
 import numpy as np
 
-from .augmentation import Augmentation
 from ....common import Transferable
 from ..sample import Sample
+from .augmentation import Augmentation
 
 
 class CroppingAugmentation(Augmentation, Transferable):

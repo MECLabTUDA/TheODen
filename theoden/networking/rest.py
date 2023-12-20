@@ -1,32 +1,31 @@
 from __future__ import annotations
 
+import logging
+from typing import TYPE_CHECKING, Annotated
+
 import fastapi
-from fastapi import FastAPI, Request, HTTPException, Depends
+import requests
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
-import logging
-import requests
-from typing import TYPE_CHECKING, Annotated
-
-from ..operations import *
 from ..common import (
-    Transferables,
-    StatusUpdate,
-    TransmissionStatusUpdate,
-    RegisteredTypeModel,
-    UnauthorizedError,
-    ServerRequestError,
     ExecutionResponse,
+    RegisteredTypeModel,
+    ServerRequestError,
+    StatusUpdate,
+    Transferables,
     TransmissionExecutionResponse,
+    TransmissionStatusUpdate,
+    UnauthorizedError,
 )
-from .interface import NodeInterface
-from ..topology.topology import Topology, NodeStatus, Node, NodeType
+from ..operations import *
 from ..security import create_access_token, decode_token
 from ..security.auth import AuthenticationManager, UserRole
+from ..topology.topology import Node, NodeStatus, NodeType, Topology
+from .interface import NodeInterface
 from .storage import FileStorageInterface
-
 
 if TYPE_CHECKING:
     from ..topology.server import Server
@@ -220,18 +219,45 @@ class RestNodeInterface(NodeInterface):
             username (str, optional): The username to use for authentication. Defaults to "dummy".
             password (str, optional): The password to use for authentication. Defaults to "dummy".
         """
-
+        super().__init__(command_queue=command_queue, ping_interval=ping_interval)
         self.address = address
         self.port = port
         self.https = https
-        self.command_queue = command_queue
-        self.ping_interval = ping_interval
 
         # get the token from the server using the username and password. This will be used for authentication.
         self.token = self.request_token(username=username, password=password)
 
     def start(self):
         pass
+
+    def add_storage_interface(self, storage_interface: FileStorageInterface) -> None:
+        self.storage_interface = storage_interface
+        self.storage_interface.set_token(self.token)
+
+    def request_token(self, username: str = "", password: str = "") -> str:
+        """Request a token from the server.
+
+        Args:
+            username (str): The username to use for authentication.
+            password (str): The password to use for authentication.
+
+        Returns:
+            str: The token.
+        """
+
+        try:
+            response = requests.post(
+                f"{'https' if self.https else 'http'}://{self.address}:{self.port}/token",
+                data={"username": username, "password": password},
+            )
+        except requests.exceptions.ConnectionError as e:
+            raise ServerRequestError(f"Could not connect to server")
+
+        if response.status_code == 401:
+            raise UnauthorizedError("Invalid username or password")
+        elif response.status_code != 200:
+            raise RuntimeError(f"Could not get token: {response.text}")
+        return response.json()["access_token"]
 
     def send_status_update(self, status_update: StatusUpdate) -> None:
         try:
@@ -255,10 +281,6 @@ class RestNodeInterface(NodeInterface):
             raise ServerRequestError(f"Could not connect to server")
         except Exception as e:
             raise ServerRequestError(f"Could not send server request: {e}")
-
-    def add_storage_interface(self, storage_interface: FileStorageInterface) -> None:
-        self.storage_interface = storage_interface
-        self.storage_interface.set_token(self.token)
 
     def send_server_request(self, request: ServerRequest) -> ExecutionResponse:
         """Send a server request to the server.
@@ -301,28 +323,3 @@ class RestNodeInterface(NodeInterface):
             raise ServerRequestError(f"Could not connect to server")
         except Exception as e:
             raise ServerRequestError(f"Could not send server request: {e}")
-
-    def request_token(self, username: str = "", password: str = "") -> str:
-        """Request a token from the server.
-
-        Args:
-            username (str): The username to use for authentication.
-            password (str): The password to use for authentication.
-
-        Returns:
-            str: The token.
-        """
-
-        try:
-            response = requests.post(
-                f"{'https' if self.https else 'http'}://{self.address}:{self.port}/token",
-                data={"username": username, "password": password},
-            )
-        except requests.exceptions.ConnectionError as e:
-            raise ServerRequestError(f"Could not connect to server")
-
-        if response.status_code == 401:
-            raise UnauthorizedError("Invalid username or password")
-        elif response.status_code != 200:
-            raise RuntimeError(f"Could not get token: {response.text}")
-        return response.json()["access_token"]

@@ -1,6 +1,6 @@
-from .sample import Sample
 from ...common import Transferable
 from .dataset import SampleDataset
+from .sample import Sample
 
 
 class MetadataWrapperDataset(SampleDataset, Transferable):

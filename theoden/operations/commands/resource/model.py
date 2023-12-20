@@ -1,6 +1,6 @@
 from ....common import Transferable
+from ....resources import Model, ResourceManager
 from ....topology import Topology
-from ....resources import ResourceManager, Model
 from . import SetResourceCommand
 
 

@@ -9,6 +9,7 @@ from ....resources.meta import CheckpointManager, DictCheckpoint
 from ...commands import Command, SendModelToServerCommand, SendOptimizerToServerCommand
 from ....common import Transferable
 from .. import Action, Instruction
+from ....watcher import AggregationCompletedNotification
 
 
 class Aggregator(ABC, Transferable, is_base_type=True):
@@ -209,6 +210,4 @@ class AggregationAction(Action, Transferable):
         client_checkpoints.reset()
 
         # inform the watcher that the aggregation is completed
-        from ....watcher import AggregationCompletedNotification
-
         resource_manager.watcher.notify_all(AggregationCompletedNotification())

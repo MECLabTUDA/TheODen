@@ -1,12 +1,11 @@
-import torch
-from torchvision.transforms import Compose, ToTensor
-import cv2
-
 import os
 
+import cv2
+import torch
+from torchvision.transforms import Compose, ToTensor
 
-from ..resources.data import DatasetAdapter, Sample, SampleDataset
 from ..common import GlobalContext, Transferable
+from ..resources.data import DatasetAdapter, Sample, SampleDataset
 
 
 class CRC(SampleDataset, Transferable):

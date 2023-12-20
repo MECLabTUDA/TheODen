@@ -1,21 +1,19 @@
 from __future__ import annotations
-import torch
 
+import logging
 from abc import ABC, abstractmethod
 
-from theoden.resources import ResourceManager
-from theoden.topology import Topology
+import torch
 
 from ...common import Transferable
+from ...resources import Model, NumpyStateLoader, ResourceManager, StateLoader
+from ...resources.meta import DictCheckpoint, ModelCheckpoints
 from ...topology import Topology
-from ...resources import ResourceManager, Model
-from ..commands import InitModelCommand, SendModelToServerCommand
-from .instruction import Instruction
-from ...resources.meta import ModelCheckpoints, DictCheckpoint, BytesCheckpoint
+from ..commands import SendModelToServerCommand
 from .action import Action
 from .distribution import ClosedDistribution
+from .instruction import Instruction
 from .selection import NSelector
-from ...resources import StateLoader, NumpyStateLoader
 
 
 class Initializer(ABC, Transferable, is_base_type=True):
@@ -114,20 +112,34 @@ class SelectRandomOneInitializer(Initializer, Transferable):
             selector=NSelector(1),
         )
 
-        # Step 2: register an on_finish hook to copy set the global model to the returned state dict of the client
-        _get_state_dict_of_one.register_on_finish_hook(
-            lambda i, tr, rr: rr.checkpoint_manager.register_checkpoint(
-                resource_type="model",
-                resource_key=action.model_key,
-                checkpoint_key="__global__",
-                checkpoint=rr.client_checkpoints.get_checkpoint(
+        def _get_state_dict_of_one_hook(
+            i: Instruction,
+            tr: Topology,
+            rr: ResourceManager,
+        ) -> None:
+            # register the checkpoint
+            try:
+                rr.checkpoint_manager.register_checkpoint(
                     resource_type="model",
                     resource_key=action.model_key,
-                    checkpoint_key=i.dist_table.selected[0],
-                ),
-                create_type_if_not_exists=ModelCheckpoints,
-            )
-        )
+                    checkpoint_key="__global__",
+                    checkpoint=rr.client_checkpoints.get_checkpoint(
+                        resource_type="model",
+                        resource_key=action.model_key,
+                        checkpoint_key=i.dist_table.selected[0],
+                    ),
+                    create_type_if_not_exists=ModelCheckpoints,
+                )
+            except IndexError as e:
+                logger = logging.getLogger(__name__)
+                logger.error(
+                    f"Could not register the global model checkpoint. The client checkpoint with key {i.dist_table.selected[0]} does not exist."
+                    f"This might be due to the fact that the client did not send the model to the server. or that an error occured during the transfer."
+                )
+                raise e
+
+        # Step 2: register an on_finish hook to copy set the global model to the returned state dict of the client
+        _get_state_dict_of_one.register_on_finish_hook(_get_state_dict_of_one_hook)
 
         return _get_state_dict_of_one
 

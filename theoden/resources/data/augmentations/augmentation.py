@@ -1,10 +1,10 @@
-import torch
-import numpy as np
-
 from abc import ABC, abstractmethod
 
-from .. import Sample
+import numpy as np
+import torch
+
 from ....common import Transferable
+from .. import Sample
 
 
 class Augmentation(ABC, Transferable, is_base_type=True):

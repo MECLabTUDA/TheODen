@@ -1,13 +1,13 @@
+from typing import TYPE_CHECKING
+
+from .... import Transferable
 from ....common import ExecutionResponse
 from ....resources import SampleDataset
-from .... import Transferable
-from ....resources.data import (
-    PartitionDataset,
-    Partition,
-    PartitionDataset,
-    BalancingDistribution,
-)
+from ....resources.data import BalancingDistribution, Partition, PartitionDataset
 from ..command import Command
+
+if TYPE_CHECKING:
+    from ....operations import DistributionStatusTable
 
 
 class SetPartitionCommand(Command, Transferable):
