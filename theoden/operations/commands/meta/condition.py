@@ -25,16 +25,16 @@ class ConditionalCommand(Command, Transferable):
         self.condition = condition
         super().__init__(uuid=uuid, **kwargs)
 
-    def set_node(self, node: "Node") -> Command:
-        self.node = node
-        self.command.set_node(node)
+    def set_client(self, client: "Client") -> Command:
+        self.client = client
+        self.command.set_client(client)
         return self
 
     def execute(self) -> ExecutionResponse | None:
-        if self.condition.resolved(resource_manager=self.node.resources):
+        if self.condition.resolved(resource_manager=self.client.resources):
             self.command()
         else:
-            self.node.send_status_update(
+            self.client.send_status_update(
                 StatusUpdate(
                     command_uuid=self.command.uuid,
                     status=CommandExecutionStatus.EXCLUDED.value,
@@ -43,11 +43,11 @@ class ConditionalCommand(Command, Transferable):
             )
         return None
 
-    def node_specific_modification(
-        self, distribution_table: "DistributionStatusTable", node_name: str
+    def client_specific_modification(
+        self, distribution_table: "DistributionStatusTable", client_name: str
     ) -> Command:
-        self.command.node_specific_modification(
-            distribution_table=distribution_table, node_name=node_name
+        self.command.client_specific_modification(
+            distribution_table=distribution_table, client_name=client_name
         )
         return self
 
@@ -55,6 +55,6 @@ class ConditionalCommand(Command, Transferable):
         self,
         topology: Topology,
         resource_manager: ResourceManager,
-        selected_nodes: list[str],
+        selected_clients: list[str],
     ):
-        self.command.on_init_server_side(topology, resource_manager, selected_nodes)
+        self.command.on_init_server_side(topology, resource_manager, selected_clients)

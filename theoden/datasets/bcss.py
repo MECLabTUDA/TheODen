@@ -12,7 +12,8 @@ class BCSSDataset(AdaptedTiledWSIDataset, Transferable):
     ) -> None:
         super().__init__(
             WSIDataset(
-                GlobalContext().get_dataset_path("bcss"), depth_metadata=["case"]
+                GlobalContext().get_dataset_path("bcss", default_to_none=True),
+                depth_metadata=["case"],
             ),
             tiling_strategy=Tiling(patch_size=patch_size, overlap=overlap),
             name="BCSS",

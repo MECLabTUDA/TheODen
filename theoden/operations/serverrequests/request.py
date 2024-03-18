@@ -16,7 +16,7 @@ class ServerRequest(ABC, Transferable, is_base_type=True):
     def __init__(
         self,
         uuid: None | str = None,
-        node_name: str | None = None,
+        client_name: str | None = None,
         **kwargs,
     ):
         """A request to the server.
@@ -24,14 +24,14 @@ class ServerRequest(ABC, Transferable, is_base_type=True):
         Args:
             uuid (None | str, optional): The uuid of the request. Defaults to None.
             server (Optional["Server"], optional): The server to pull the command from. Defaults to None. It will be set by the server when the request is processed.
-            node_name (str | None, optional): The uuid of the node that sent the request. Defaults to None. It will be set by the server when the request is processed.
+            client_name (str | None, optional): The uuid of the client that sent the request. Defaults to None. It will be set by the server when the request is processed.
         """
         self.uuid = uuid
         if self.uuid is None:
             self.uuid = str(uuid4())
             self.add_initialization_parameter(uuid=self.uuid)
         self.server: "Server" | None = None
-        self.node_name = node_name
+        self.client_name = client_name
 
     def set_server(self, server: "Server") -> ServerRequest:
         """Sets the server.

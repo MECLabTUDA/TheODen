@@ -1,3 +1,3 @@
-from theoden import start_node
+from theoden import start_client
 
-start_node(global_context="demo_context.yaml", ping_interval=0.5)
+start_client(global_context="demo_context.yaml", ping_interval=0.5)

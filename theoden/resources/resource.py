@@ -77,9 +77,11 @@ class ResourceManager(OrderedDict):
                 # create new resource register
                 sub_register = self.sr(
                     key=splitted_key[0],
-                    resource=ResourceManager()
-                    if self.default_subregister_type is None
-                    else self.default_subregister_type(),
+                    resource=(
+                        ResourceManager()
+                        if self.default_subregister_type is None
+                        else self.default_subregister_type()
+                    ),
                     assert_type=ResourceManager,
                     overwrite=overwrite,
                 )
@@ -289,8 +291,7 @@ class ResourceManager(OrderedDict):
 
         wp = self.gr(key="__watcher__", assert_type=WatcherPool, default=None)
         if wp is None:
-            wp = WatcherPool()
-            self.sr(key="__watcher__", resource=wp)
+            raise ValueError("No watcher pool found")
         return wp
 
     @property

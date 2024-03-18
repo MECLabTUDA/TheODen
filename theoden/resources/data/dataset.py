@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from .exclusion import Exclusion, ExclusionDataset
 
 
-class SampleDataset(Dataset, ABC, Transferable, build=False, is_base_type=True):
+class SampleDataset(Dataset, ABC, Transferable, is_base_type=True):
     def load_fingerprint(self, folder: str) -> dict:
         fingerprint_hash = self.initialization_hash()
         path = Path(folder) / f"{fingerprint_hash}.json"
@@ -196,9 +196,7 @@ class SampleDataset(Dataset, ABC, Transferable, build=False, is_base_type=True):
 
         keys = data[0].keys()
         mask_overlap = set(keys).intersection(
-            {
-                "segmentation_mask",
-            }
+            {"_lightly_augmentation", "segmentation_mask"}
         )
         n_masks = len(mask_overlap)
 
@@ -218,7 +216,15 @@ class SampleDataset(Dataset, ABC, Transferable, build=False, is_base_type=True):
                 j = 0
                 for k, v in sample.items():
                     if k in mask_overlap:
-                        axes[j + 1, i].imshow(v.numpy(), vmin=vmin, vmax=vmax)
+                        axes[j + 1, i].imshow(
+                            (
+                                v.numpy()
+                                if len(v.shape) == 2
+                                else v.numpy().transpose((1, 2, 0))
+                            ),
+                            vmin=vmin,
+                            vmax=vmax,
+                        )
                         axes[j + 1, i].set_yticks([])
                         axes[j + 1, i].set_xticks([])
                         if i == 0:

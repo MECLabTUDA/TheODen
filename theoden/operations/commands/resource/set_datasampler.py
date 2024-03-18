@@ -12,6 +12,13 @@ class SetDataSamplerCommand(SetResourceCommand, Transferable):
         uuid: str | None = None,
         **kwargs,
     ) -> None:
+        """Set the data sampler on the client
+
+        Args:
+            datasampler (DataSampler): The data sampler to set
+            dataset (str, optional): The resource key of the data sampler. Defaults to "dataset:train_sampler".
+            uuid (str | None, optional): The uuid of the command. Defaults to None.
+        """
         super().__init__(
             key=dataset,
             resource=datasampler,

@@ -10,7 +10,7 @@ from ...topology import Topology
 from ..status import CommandExecutionStatus
 
 if TYPE_CHECKING:
-    from ...topology.node import Node
+    from ...topology.client import Client
     from .. import DistributionStatusTable
 
 
@@ -26,7 +26,7 @@ class Command(Transferable, is_base_type=True):
         **kwargs,
     ) -> None:
         self.uuid = uuid
-        self.node: "Node" | None = None
+        self.client: "Client" | None = None
 
     def init_uuid(self) -> Command:
         """
@@ -49,31 +49,31 @@ class Command(Transferable, is_base_type=True):
         # Return the current Command object with the UUID and any updated initialization parameters
         return self
 
-    def set_node(self, node: "Node") -> Command:
+    def set_client(self, client: "Client") -> Command:
         """
-        Sets the node attribute of the Command object.
+        Sets the client attribute of the Command object.
 
         Args:
-            node (Node): The node to set as the attribute.
+            client (Node): The client to set as the attribute.
 
         Returns:
-            The current Command object with the node attribute set.
+            The current Command object with the client attribute set.
         """
-        # Set the node attribute of the Command object
-        self.node = node
+        # Set the client attribute of the Command object
+        self.client = client
 
-        # Return the current Command object with the node attribute set
+        # Return the current Command object with the client attribute set
         return self
 
     @property
-    def node_rm(self) -> ResourceManager:
+    def client_rm(self) -> ResourceManager:
         """
-        Returns the ResourceManager of the node attribute of the Command object.
+        Returns the ResourceManager of the client attribute of the Command object.
 
         Returns:
-            The ResourceManager of the node attribute of the Command object.
+            The ResourceManager of the client attribute of the Command object.
         """
-        return self.node.resources
+        return self.client.resources
 
     def get_command_tree(self, flatten: bool = True) -> dict[str, Command]:
         """
@@ -122,20 +122,29 @@ class Command(Transferable, is_base_type=True):
         self,
         topology: Topology,
         resource_manager: ResourceManager,
-        selected_nodes: list[str],
+        selected_clients: list[str],
     ) -> None:
+        """This method is called on the server when the command is initialized.
+        It is used to modify resources or the command at the time of initialization.This can be used to add information
+        to the command that is only available at runtime.
+
+        Args:
+            topology (Topology): The topology register of the instruction.
+            resource_manager (ResourceManager): The resource register of the instruction.
+            selected_clients (list[str]): The list of clients that are selected for the instruction.
+        """
         pass
 
-    def node_specific_modification(
-        self, distribution_table: "DistributionStatusTable", node_name: str
+    def client_specific_modification(
+        self, distribution_table: "DistributionStatusTable", client_name: str
     ) -> Command:
         """
-        This method is called on the server to modify the command to be executed on the clients. It is used to add node specific information to the command after initialization.
+        This method is called on the server to modify the command to be executed on the clients. It is used to add client specific information to the command after initialization.
         This is necessary because the command is initialized on the server but might need information that is only available during runtime.
 
         Args:
             status_register (dict): The dictionary of all the commands in the instruction and their status.
-            node_name (str): The uuid of the node the command is executed on.
+            client_name (str): The uuid of the client the command is executed on.
 
         Returns:
             The modified command.
@@ -154,10 +163,15 @@ class Command(Transferable, is_base_type=True):
         """
         raise NotImplementedError("Please Implement this method")
 
-    def __call__(self, *args, **kwargs):
-        self.node.send_status_update(
+    def __call__(self, *args, **kwargs) -> ExecutionResponse | None:
+        """This method is called when the command is executed. It is used to send status updates to the server before and after the execution of the command.
+
+        Returns:
+            ExecutionResponse | None: The response of the execution.
+        """
+        self.client.send_status_update(
             StatusUpdate(
-                node_name=None,
+                client_name=None,
                 command_uuid=self.uuid,
                 status=CommandExecutionStatus.STARTED,
                 datatype=type(self).__name__,
@@ -169,9 +183,9 @@ class Command(Transferable, is_base_type=True):
             result: ExecutionResponse | None = self.execute()
         except Exception as e:
             # Send a "failed" status update to the server if an exception occurs
-            self.node.send_status_update(
+            self.client.send_status_update(
                 StatusUpdate(
-                    node_name=None,
+                    client_name=None,
                     command_uuid=self.uuid,
                     status=CommandExecutionStatus.FAILED,
                     datatype=type(self).__name__,
@@ -180,9 +194,9 @@ class Command(Transferable, is_base_type=True):
             raise e
         else:
             # Send a "finished" status update to the server if the function completes successfully
-            self.node.send_status_update(
+            self.client.send_status_update(
                 StatusUpdate(
-                    node_name=None,
+                    client_name=None,
                     command_uuid=self.uuid,
                     status=CommandExecutionStatus.FINISHED,
                     datatype=type(self).__name__,
@@ -195,7 +209,7 @@ class Command(Transferable, is_base_type=True):
         self,
         topology: Topology,
         resource_manager: ResourceManager,
-        node_name: str,
+        client_name: str,
         execution_response: ExecutionResponse,
         instruction_uuid: str,
     ) -> None:
@@ -205,7 +219,7 @@ class Command(Transferable, is_base_type=True):
         Args:
             topology (Topology): The topology register of the instruction.
             resource_manager (ResourceManager): The resource register of the instruction.
-            node_name (str): The uuid of the node the command is executed on.
+            client_name (str): The uuid of the client the command is executed on.
             execution_response (ExecutionResponse): The response of the execution.
             instruction_uuid (str): The uuid of the instruction.
         """
@@ -221,8 +235,8 @@ class Command(Transferable, is_base_type=True):
         This method is called on the server to check if all clients have finished executing the command.
 
         Args:
-            topology (Topology): The topology register of the node.
-            resource_manager (ResourceManager): The resource register of the node.
+            topology (Topology): The topology register of the client.
+            resource_manager (ResourceManager): The resource register of the client.
             instruction_uuid (str): The uuid of the instruction.
         """
         pass

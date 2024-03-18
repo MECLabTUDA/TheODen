@@ -4,10 +4,14 @@ from .set_loss import SetLossesCommand
 from .optimizer import SetOptimizerCommand
 from .set_scheduler import SetLRSchedulerCommand
 from .set_dataloader import SetDataLoaderCommand
-from .set_augmentation import SetAugmentationCommand, SetNodeSpecificAugmentationCommand
+from .set_augmentation import (
+    SetAugmentationCommand,
+    SetClientSpecificAugmentationCommand,
+)
 from .load_dataset import LoadDatasetCommand
 from .model import InitModelCommand
-from .helper import PrintResourceKeysCommand, ClearResourcesCommand
+from .modify_model import SelectTorchEncoderOfModelCommand, WrapModelCommand
+from .helper import PrintResourceKeysCommand, ClearResourcesCommand, ExitRunCommand
 from .set_partition import SetPartitionCommand, SetLocalPartitionCommand
 from .plot_samples import PlotSamplesCommand
 from .set_datasampler import SetDataSamplerCommand

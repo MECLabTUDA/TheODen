@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import logging
+import math
 from abc import ABC, abstractmethod
 
 import torch
-import torch.nn.functional as F
-
-# from segmentation_models_pytorch.losses import DiceLoss as SMPDiceLoss
 from pytorch_toolbelt.losses import DiceLoss
-from torch.nn import CrossEntropyLoss, Module
+from torch.nn import CrossEntropyLoss
 from torchmetrics import Dice
 from torchmetrics.classification import MulticlassConfusionMatrix
 
@@ -84,7 +83,7 @@ class Loss(ABC, Transferable, is_base_type=True):
         return self.epoch_loss
 
     @abstractmethod
-    def get(self) -> float:
+    def get(self) -> float | dict[str, float]:
         raise NotImplementedError("Please Implement this method")
 
     @abstractmethod
@@ -117,7 +116,18 @@ class Loss(ABC, Transferable, is_base_type=True):
         """
         d = {}
         for l in losses:
-            d[f"{pre}{l.display_name()}{post}"] = l.get()
+            _loss = l.get()
+
+            if isinstance(_loss, dict):
+                for key, value in _loss.items():
+                    d[f"{pre}{l.display_name()}_{key}{post}"] = value
+            else:
+                d[f"{pre}{l.display_name()}{post}"] = l.get()
+
+            # if nan, set to None
+            for key, value in d.items():
+                if value and math.isnan(value):
+                    d[key] = None
         return d
 
     @staticmethod
@@ -202,7 +212,7 @@ class AccuracyLoss(Loss, Transferable):
         self.num_correct += self.get_epoch_loss()
         self.num_total += batch["image"].shape[0]
 
-    def get(self) -> float:
+    def get(self) -> float | dict[str, float]:
         return self.num_correct / self.num_total
 
     def reset(self) -> None:
@@ -240,13 +250,10 @@ class CELoss(Loss, Transferable):
         test: bool = False,
     ) -> None:
         self.set_epoch_loss(self.cross_entropy(prediction, batch[label_key].long()))
-        # if self.exp_moving == 0:
-        #     self.exp_moving = self.get_epoch_loss()
-        # self.exp_moving = 0.8 * self.exp_moving + 0.2 * self.get_epoch_loss()
         self.sum += self.get_epoch_loss().detach().cpu()
         self.num_total += 1
 
-    def get(self) -> float:
+    def get(self) -> float | dict[str, float]:
         # return self.exp_moving.item()
         return self.sum.item() / self.num_total
 
@@ -283,7 +290,7 @@ class MulticlassDiceLoss(Loss, Transferable):
         self.sum += self.get_epoch_loss().detach().cpu()
         self.num_total += 1
 
-    def get(self) -> float:
+    def get(self) -> float | dict[str, float]:
         return self.sum.item() / self.num_total
 
     def reset(self) -> None:
@@ -347,12 +354,14 @@ class DisplayDiceLoss(Loss, Transferable):
         train: bool = False,
         choosing_criterion: bool = False,
         factor: float = 1.0,
+        include_classwise: bool = True,
     ) -> None:
         self.dice_loss = MultiClassSegmentationMetric(
             num_classes=num_classes, ignore_index=ignore_index
         ).to("cuda")
         super().__init__(train, choosing_criterion, factor)
         self.higher_better = True
+        self.include_classwise = include_classwise
 
     def display_name(self) -> str:
         return "Dice"
@@ -368,11 +377,20 @@ class DisplayDiceLoss(Loss, Transferable):
         self.dice_loss.update(prediction.clone(), batch[label_key].long())
         self.set_epoch_loss(self.dice_loss.dice(average=True))
 
-    def get(self) -> float:
-        return self.dice_loss.dice(average=True).item()
+    def get(self) -> float | dict[str, float]:
+        return {
+            "avg": self.dice_loss.dice(average=True).item(),
+            **(
+                {
+                    f"class_{i}": self.dice_loss.dice(average=False, class_id=i).item()
+                    for i in range(self.dice_loss.num_classes)
+                }
+                if self.include_classwise
+                else {}
+            ),
+        }
 
     def reset(self) -> None:
-        print(self.dice_loss.dice(False))
         self.dice_loss.reset()
 
 
@@ -393,7 +411,7 @@ class ClasswiseDiceLoss(DisplayDiceLoss, Transferable):
     def display_name(self) -> str:
         return "CWDice"
 
-    def get(self) -> float:
+    def get(self) -> float | dict[str, float]:
         return self.sum / self.num_total
 
     def reset(self) -> None:

@@ -20,6 +20,15 @@ class SetAugmentationCommand(WrapDatasetCommand, Transferable):
         uuid: str | None = None,
         **kwargs
     ) -> None:
+        """Set the same augmentation on all clients
+
+        Args:
+            augmentation (Augmentation): The augmentation to set
+            key (str, optional): The resource key of the dataset. Defaults to "dataset:train".
+            mode (str, optional): The mode of the augmentation. Defaults to "replace".
+            seed (int | None, optional): The seed for the augmentation. Defaults to None.
+            uuid (str | None, optional): The uuid of the command. Defaults to None.
+        """
         super().__init__(
             dataset=key,
             wrapper=AugmentationDataset,
@@ -31,7 +40,7 @@ class SetAugmentationCommand(WrapDatasetCommand, Transferable):
         self.mode = mode
 
 
-class SetNodeSpecificAugmentationCommand(Command, Transferable):
+class SetClientSpecificAugmentationCommand(Command, Transferable):
     def __init__(
         self,
         augmentations: list[Augmentation],
@@ -42,17 +51,26 @@ class SetNodeSpecificAugmentationCommand(Command, Transferable):
         uuid: str | None = None,
         **kwargs
     ) -> None:
+        """Set different augmentations on different clients
+
+        Args:
+            augmentations (list[Augmentation]): The augmentations to set
+            key (str, optional): The resource key of the dataset. Defaults to "dataset:train".
+            mode (str, optional): The mode of the augmentation. Defaults to "replace".
+            seed (int | None, optional): The seed for the augmentation. Defaults to None.
+            uuid (str | None, optional): The uuid of the command. Defaults to None.
+        """
         super().__init__(uuid=uuid, **kwargs)
         self.augmentations = augmentations
         self.key = key
         self.mode = mode
         self.seed = seed
 
-    def node_specific_modification(
-        self, distribution_table: "DistributionStatusTable", node_name: str
+    def client_specific_modification(
+        self, distribution_table: "DistributionStatusTable", client_name: str
     ) -> Command:
         included = distribution_table.selected
-        key = sorted(included).index(node_name)
+        key = sorted(included).index(client_name)
 
         return SetAugmentationCommand(
             augmentation=self.augmentations[key],

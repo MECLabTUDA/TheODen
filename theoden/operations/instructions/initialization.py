@@ -27,7 +27,7 @@ class Initializer(ABC, Transferable, is_base_type=True):
         pass
 
 
-class ServerInitializer(Initializer, Transferable):
+class ServerInitializer(Initializer):
     def initialize(
         self,
         action: InitGlobalModelAction,
@@ -53,7 +53,7 @@ class ServerInitializer(Initializer, Transferable):
         return None
 
 
-class FileInitializer(Initializer, Transferable):
+class FileInitializer(Initializer):
     def __init__(self, file_path: str) -> None:
         super().__init__()
         self.file_path = file_path
@@ -79,15 +79,17 @@ class FileInitializer(Initializer, Transferable):
         return None
 
 
-class SelectRandomOneInitializer(Initializer, Transferable):
+class SelectRandomOneInitializer(Initializer):
     """Select the state dict of a random client and distribute it to all clients."""
 
     def __init__(
         self,
         loader: type[StateLoader] | None = None,
+        only_grad: bool = False,
     ):
         super().__init__()
         self.loader = loader if loader else NumpyStateLoader()
+        self.only_grad = only_grad
 
     def initialize(
         self,
@@ -108,7 +110,9 @@ class SelectRandomOneInitializer(Initializer, Transferable):
 
         # Step 1: Select a random client and get the state dict
         _get_state_dict_of_one = ClosedDistribution(
-            SendModelToServerCommand(action.model_key, loader=self.loader),
+            SendModelToServerCommand(
+                action.model_key, loader=self.loader, only_grad=self.only_grad
+            ),
             selector=NSelector(1),
         )
 
@@ -134,7 +138,7 @@ class SelectRandomOneInitializer(Initializer, Transferable):
                 logger = logging.getLogger(__name__)
                 logger.error(
                     f"Could not register the global model checkpoint. The client checkpoint with key {i.dist_table.selected[0]} does not exist."
-                    f"This might be due to the fact that the client did not send the model to the server. or that an error occured during the transfer."
+                    f"This might be due to the fact that the client did not send the model to the server. or that an error occurred during the transfer."
                 )
                 raise e
 
@@ -144,7 +148,7 @@ class SelectRandomOneInitializer(Initializer, Transferable):
         return _get_state_dict_of_one
 
 
-class InitGlobalModelAction(Action, Transferable):
+class InitGlobalModelAction(Action):
     """Action to initialize the model on the clients.
 
     This Action will send the model to the clients and initialize it.

@@ -9,23 +9,23 @@ from .. import Command
 
 class SequentialCommand(Command, Transferable):
     def __init__(
-        self, commands: List[Command], *, uuid: Optional[str] = None, **kwargs
+        self, commands: list[Command], *, uuid: Optional[str] = None, **kwargs
     ) -> None:
         """A command that executes a list of commands sequentially.
 
         Args:
             commands (List[Command]): The commands to execute sequentially.
-            node (Optional["Node"], optional): The node to execute the command on. Defaults to None.
+            client (Optional["Node"], optional): The client to execute the command on. Defaults to None.
             uuid (Optional[str], optional): The uuid of the command. Defaults to None.
         """
         self.commands = commands
         super().__init__(uuid=uuid, **kwargs)
 
-    def set_node(self, node: "Node") -> Command:
-        self.node = node
-        # set node to the commands
+    def set_client(self, client: "Client") -> Command:
+        self.client = client
+        # set client to the commands
         for c in self.commands:
-            c.set_node(node)
+            c.set_client(client)
         return self
 
     def execute(self) -> ExecutionResponse | None:
@@ -33,13 +33,13 @@ class SequentialCommand(Command, Transferable):
             c()
         return None
 
-    def node_specific_modification(
-        self, distribution_table: "DistributionStatusTable", node_name: str
+    def client_specific_modification(
+        self, distribution_table: "DistributionStatusTable", client_name: str
     ) -> Command:
         for c in self.commands:
-            c.node_specific_modification(
+            c.client_specific_modification(
                 distribution_table=distribution_table,
-                node_name=node_name,
+                client_name=client_name,
             )
         return self
 
@@ -47,10 +47,10 @@ class SequentialCommand(Command, Transferable):
         self,
         topology: Topology,
         resource_manager: ResourceManager,
-        selected_nodes: list[str],
+        selected_clients: list[str],
     ):
         for c in self.commands:
-            c.on_init_server_side(topology, resource_manager, selected_nodes)
+            c.on_init_server_side(topology, resource_manager, selected_clients)
 
     def __add__(self, other: Command) -> Command:
         """

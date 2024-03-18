@@ -142,7 +142,7 @@ class MetricResponse(ExecutionResponse):
         for metric_name, metric_value in metrics.items():
             if not isinstance(metric_name, str):
                 raise ValueError("Metric names must be strings")
-            if not isinstance(metric_value, (float | int)):
+            if not isinstance(metric_value, (float | int | None)):
                 raise ValueError("Metric values must be floats or int")
 
         super().__init__(
@@ -190,7 +190,7 @@ class StatusUpdate(BaseModel):
     command_uuid: str
     status: int
     datatype: str
-    node_name: str | None = None
+    client_name: str | None = None
     response: ExecutionResponse | None = None
 
     def contains_files(self) -> bool:
@@ -207,7 +207,7 @@ class StatusUpdate(BaseModel):
             command_uuid=self.command_uuid,
             status=self.status,
             datatype=self.datatype,
-            node_name=self.node_name,
+            client_name=self.client_name,
             response=TransmissionExecutionResponse(
                 data=self.response.data,
                 files=files,
@@ -226,7 +226,7 @@ class TransmissionStatusUpdate(StatusUpdate):
             command_uuid=self.command_uuid,
             status=self.status,
             datatype=self.datatype,
-            node_name=self.node_name,
+            client_name=self.client_name,
             response=ExecutionResponse(
                 data=self.response.data,
                 files=files,

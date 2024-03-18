@@ -13,12 +13,9 @@ As the server is the main module to handle and orchestrate the training,
 """
 
 
-# set up global context. This is a singleton object that is used to store global variables like paths to datasets.
-GlobalContext().load_from_yaml("demo_context.yaml")
-
 initial_instructions = [
     # The condition is used to wait for a certain number of nodes to join the federation before starting training.
-    RequireNumberOfNodesCondition(3),
+    RequireNumberOfClientsCondition(3),
     # The default training instruction group is a class that allows specifying many relevant training options.
     # This includes the dataset, the splits, augmentations, losses, optimizer, scheduler and the model.
     DefaultTrainingInitInstructionBundle(
@@ -76,9 +73,7 @@ initial_instructions = [
         train_batch_size=12,
         validation_batch_size=128,
         # we use the FedAvgAggregator with the DatasetLengthScore as client score
-        aggregator=FedOptAggregator(
-            server_optimizer=FedAvgAggregator(), client_score=DatasetLengthScore
-        ),
+        aggregator=FedAvgAggregator(client_score=DatasetLengthScore),
         # we validate on the val split of the dataset after every 10 rounds
         validate_every_n_rounds=10,
         label_key="segmentation_mask",
@@ -92,4 +87,6 @@ start_server(
     instructions=initial_instructions,
     run_name="theoden_demo",
     rabbitmq=False,
+    global_context="demo_context.yaml",
+    use_aim=True,
 )

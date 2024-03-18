@@ -1,67 +1,44 @@
+import logging
+from abc import ABC, abstractmethod
+
 import numpy as np
 import torch
 
-from abc import ABC, abstractmethod
-
-from ....topology import Topology
+from ....common import AggregationError, Transferable
 from ....resources import ResourceManager
-from ....resources.meta import CheckpointManager, DictCheckpoint
-from ...commands import Command, SendModelToServerCommand, SendOptimizerToServerCommand
-from ....common import Transferable
-from .. import Action, Instruction
+from ....resources.meta import DictCheckpoint
+from ....topology import Topology
 from ....watcher import AggregationCompletedNotification
+from .. import Action, Instruction
 
 
 class Aggregator(ABC, Transferable, is_base_type=True):
-    def __init__(
-        self,
-        model_key: str | list[str] = "@all",
-        optimizer_key: str | None = None,
-        client_score: type | None = None,
-        **kwargs,
-    ):
-        self.model_key = model_key
-        self.optimizer_key = optimizer_key
+    def __init__(self, client_score: type | None = None, **kwargs):
         self.client_score = client_score
 
-    def distribute_commands(
-        self, topology: Topology, resource_manager: ResourceManager
-    ) -> list[Command]:
-        """Returns a list of commands that are required to distribute the models.
-
-        This method is called on the server side before the aggregation is started. All commands that load resources
-        that should be updated after a communication round should be returned here.
+    def _get_global_model(
+        self, resource_type: str, resource_key: str, resource_manager: ResourceManager
+    ) -> dict[str, any]:
+        """Get the global model from the checkpoint manager.
 
         Args:
-            topology (Topology): The topology register.
-            resource_manager (ResourceManager): The resource register.
+            resource_type (str): The type of the resource.
+            resource_key (str): The key of the resource.
+            resource_manager (ResourceManager): The resource manager.
 
         Returns:
-            list[Command]: A list of commands that are required to distribute the models.
+            dict[str, any]: The global model.
         """
-
-        return resource_manager.checkpoint_manager.get_global_checkpoints_commands(
-            of_resource_type=["model", "optimizer"] if self.optimizer_key else ["model"]
-        )
-
-    def required_resources_for_aggregation(self) -> list[Command]:
-        """Returns a list of commands that are required to aggregate the models.
-
-        This method is called on the server after the aggregation is finished. All resources that are required for the
-        aggregation should be returned here.
-        The server will then request these resources from the nodes in the next round. The resources will be added to
-        the resource register of the instruction.
-        Default implementation is to request the model from the nodes and also the optimizer if one is specified. This
-        method should be overwritten if other resources are required.
-
-        Returns:
-            list[Command]: A list of commands that are required to aggregate the models.
-        """
-        return [SendModelToServerCommand(resource_key=self.model_key)] + (
-            []
-            if not self.optimizer_key
-            else [SendOptimizerToServerCommand(resource_key=self.optimizer_key)]
-        )
+        try:
+            return resource_manager.checkpoint_manager.get_checkpoint(
+                resource_type=resource_type,
+                resource_key=resource_key,
+                checkpoint_key="__global__",
+            ).to(dict)
+        except KeyError:
+            raise AggregationError(
+                f"Could not find global resource for resource type `{resource_type}` and resource key `{resource_key}`. Make sure to initialize the global resource before starting the aggregation."
+            )
 
     def _calculate_pseudo_gradients(
         self, resources: dict[str, DictCheckpoint], global_model: dict[str, any]
@@ -76,12 +53,8 @@ class Aggregator(ABC, Transferable, is_base_type=True):
 
             # for each local model's parameter
             for parameter_key, parameter in resource.to(dict).items():
-                # get global model's parameter
-                global_parameter = global_model[parameter_key]
-
-                # calculate pseudo gradient
                 pseudo_gradients[resource_key][parameter_key] = (
-                    parameter - global_parameter
+                    parameter - global_model[parameter_key]
                 )
 
         # return pseudo gradient
@@ -116,12 +89,12 @@ class Aggregator(ABC, Transferable, is_base_type=True):
     ) -> dict[str, float]:
         # get weights from topology register
         if self.client_score is None:
-            scores = {node.name: 1 for node in topology.online_clients()}
+            scores = {client.name: 1 for client in topology.online_clients()}
         else:
             try:
                 scores = {
-                    node.name: node.data[self.client_score.__name__]
-                    for node in topology.online_clients(False)
+                    client.name: client.data[self.client_score.__name__]
+                    for client in topology.online_clients(False)
                 }
             except KeyError:
                 raise KeyError(
@@ -132,7 +105,7 @@ class Aggregator(ABC, Transferable, is_base_type=True):
         # normalize weights
         total_score = sum(scores.values())
         weights = {
-            node_name: score / total_score for node_name, score in scores.items()
+            client_name: score / total_score for client_name, score in scores.items()
         }
         return weights
 
@@ -144,13 +117,25 @@ class Aggregator(ABC, Transferable, is_base_type=True):
         resources: dict[str, DictCheckpoint],
         topology: Topology,
         resource_manager: ResourceManager,
-    ) -> any:
+    ) -> dict[str, torch.Tensor]:
+        """Aggregates the resources.
+
+        Args:
+            resource_type (str): The type of the resource.
+            resource_key (str): The key of the resource.
+            resources (dict[str, DictCheckpoint]): The resources to aggregate.
+            topology (Topology): The topology register.
+            resource_manager (ResourceManager): The resource register.
+
+        Returns:
+            dict[str, torch.Tensor]: The aggregated resource.
+        """
         raise NotImplementedError(
             "Please implement this method for your aggregation method."
         )
 
 
-class AggregationAction(Action, Transferable):
+class AggregationAction(Action):
     def __init__(
         self,
         aggregator: Aggregator,
@@ -159,6 +144,14 @@ class AggregationAction(Action, Transferable):
         remove_instruction_resource_entry: bool = True,
         **kwargs,
     ) -> None:
+        """Aggregation action. Aggregates the models and optimizers on the server.
+
+        Args:
+            aggregator (Aggregator): The aggregator to use.
+            _no_aggregation (bool, optional): Whether to skip the aggregation. Defaults to False.
+            predecessor (Instruction | None, optional): The predecessor instruction. Defaults to None.
+            remove_instruction_resource_entry (bool, optional): Whether to remove the resource entry from the instruction. Defaults to True.
+        """
         super().__init__(predecessor, remove_instruction_resource_entry, **kwargs)
         self.aggregator = aggregator
         self._no_aggregation = _no_aggregation
@@ -176,7 +169,7 @@ class AggregationAction(Action, Transferable):
             Instruction | None: The instruction that should be executed after the aggregation.
         """
 
-        # if no aggregation is required, return None. This is mainly the case when training on a single node
+        # if no aggregation is required, return None. This is mainly the case when training on a single client
         if self._no_aggregation:
             return None
 
@@ -188,6 +181,11 @@ class AggregationAction(Action, Transferable):
                 # get global model from checkpoint manager
 
                 cm = resource_manager.checkpoint_manager
+
+                if len(resource) < 2:
+                    logging.warning(
+                        f"Only one client checkpoint found for resource {resource_type} {resource_key}."
+                    )
 
                 # aggregate resource_manager using the aggregators aggregate method
                 aggregated = self.aggregator.aggregate(

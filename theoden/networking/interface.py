@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from abc import ABC, abstractmethod
 
 from ..common import (
@@ -12,7 +13,7 @@ from ..common import (
 from ..operations import PullCommandRequest, ServerRequest
 
 
-class NodeInterface(ABC):
+class ClientInterface(ABC):
     def __init__(self, command_queue: list[dict], ping_interval: float = 1.0):
         self.command_queue = command_queue
         self.ping_interval = ping_interval
@@ -25,8 +26,8 @@ class NodeInterface(ABC):
     def send_server_request(self, request: ServerRequest) -> ExecutionResponse:
         pass
 
-    async def start_request_loop(self) -> None:
-        while True:
+    async def start_request_loop(self, stop_event) -> None:
+        while not stop_event.is_set():
             # Wait for 1 second before making the next _pull() call
             await asyncio.sleep(self.ping_interval)
 
@@ -45,4 +46,4 @@ class NodeInterface(ABC):
         except ServerRequestError as e:
             return
         except UnauthorizedError as e:
-            print("Unauthorized")
+            logging.error("UnauthorizedError: %s", e)

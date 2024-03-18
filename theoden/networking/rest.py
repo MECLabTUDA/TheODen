@@ -24,7 +24,7 @@ from ..operations import *
 from ..security import create_access_token, decode_token
 from ..security.auth import AuthenticationManager, UserRole
 from ..topology.topology import Node, NodeStatus, NodeType, Topology
-from .interface import NodeInterface
+from .interface import ClientInterface
 from .storage import FileStorageInterface
 
 if TYPE_CHECKING:
@@ -127,10 +127,10 @@ class RestServerInterface(FastAPI):
             status_update: TransmissionStatusUpdate,
         ):
             # authenticate the user
-            node_name = authenticate_token(token)
+            client_name = authenticate_token(token)
 
-            # add the node uuid to the status update
-            status_update.node_name = node_name
+            # add the client uuid to the status update
+            status_update.client_name = client_name
 
             downloaded_resource_manager = {}
 
@@ -152,13 +152,13 @@ class RestServerInterface(FastAPI):
             request_body: RegisteredTypeModel,
         ):
             # authenticate the user
-            node_name = authenticate_token(token)
+            client_name = authenticate_token(token)
 
             # convert the request body to a ServerRequest
             sr = Transferables().to_object(
                 request_body.dict(),
                 ServerRequest,
-                node_name=node_name,
+                client_name=client_name,
             )
 
             try:
@@ -199,7 +199,7 @@ class RestServerInterface(FastAPI):
             self.mount("/", self.storage_interface.storage)
 
 
-class RestNodeInterface(NodeInterface):
+class RestClientInterface(ClientInterface):
     def __init__(
         self,
         command_queue: list[dict],
@@ -210,7 +210,7 @@ class RestNodeInterface(NodeInterface):
         password: str = "dummy",
         ping_interval: float = 1.0,
     ) -> None:
-        """A federated learning node communication interface based on REST.
+        """A federated learning client communication interface based on REST.
 
         Args:
             address (str, optional): The address of the server. Defaults to "localhost".

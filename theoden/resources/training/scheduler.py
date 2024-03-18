@@ -4,7 +4,7 @@ from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
 from ...common import Transferable
 
-# Get all scheduler classe
+# Get all scheduler classes
 # Transferable.make_transferable(lr_scheduler.LRScheduler, is_base_type=True)
 
 attrs = dir(lr_scheduler)

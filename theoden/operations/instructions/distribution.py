@@ -4,7 +4,13 @@ import json
 import logging
 from abc import ABC, abstractmethod
 
-from ...common import StatusUpdate, Transferable, to_list
+from ...common import (
+    NoCommandException,
+    StatusUpdate,
+    TooManyCommandsExecutingException,
+    Transferable,
+    to_list,
+)
 from ...resources import ResourceManager
 from ...topology import NodeStatus, Topology
 from ...watcher import CommandFinishedNotification, StatusUpdateNotification
@@ -16,34 +22,36 @@ from .selection import AllSelector, Selector
 
 
 class DistributionStatusTable(dict[str, dict[str, CommandDistributionStatus] | None]):
-    """A table to keep track of the status of commands distributed to nodes.
+    """A table to keep track of the status of commands distributed to clients.
     ```
     Structure:
     {
-        node1: {
+        client1: {
             command1: CommandDistributionStatus, # first command is the main command
             command2: CommandDistributionStatus, # next commands are subcommands
             ...
         },
-        node2: {
+        client2: {
             command1: CommandDistributionStatus,
             command2: CommandDistributionStatus,
             ...
         },
-        node3: None, # None means that the node is not selected for the instruction
+        client3: None, # None means that the client is not selected for the instruction
     }
     ```
     """
 
-    def add_node(self, node_name: str, command_uuids: list[str] | None = None) -> None:
-        """Adds a node to the table.
+    def add_client(
+        self, client_name: str, command_uuids: list[str] | None = None
+    ) -> None:
+        """Adds a client to the table.
 
         Args:
-            node_name (str): The name of the node.
+            client_name (str): The name of the client.
             command_uuids (list[str], optional): The UUIDs of the commands to add. Defaults to None.
         """
 
-        self[node_name] = (
+        self[client_name] = (
             {
                 command_uuid: CommandDistributionStatus.UNREQUESTED
                 for command_uuid in command_uuids
@@ -53,153 +61,158 @@ class DistributionStatusTable(dict[str, dict[str, CommandDistributionStatus] | N
         )
 
     @property
-    def nodes(self) -> list[str]:
-        """Returns a list of all nodes.
+    def clients(self) -> list[str]:
+        """Returns a list of all clients.
 
         Returns:
-            list[str]: A list of all nodes.
+            list[str]: A list of all clients.
         """
         return list(self.keys())
 
-    def get_main_command_uuid(self, node_name: str) -> str | None:
-        """Returns the UUID of the main command on a node.
+    def get_main_command_uuid(self, client_name: str) -> str | None:
+        """Returns the UUID of the main command on a client.
 
         Args:
-            node_name (str): The name of the node.
+            client_name (str): The name of the client.
 
         Returns:
-            str | None: The UUID of the main command on a node. Returns None if the node is not part of the instruction.
+            str | None: The UUID of the main command on a client. Returns None if the client is not part of the instruction.
         """
-        return list(self[node_name].keys())[0] if node_name in self.selected else None
+        return (
+            list(self[client_name].keys())[0] if client_name in self.selected else None
+        )
 
-    def set_for_all_node_commands(
-        self, node_name: str, status: CommandDistributionStatus
+    def set_for_all_client_commands(
+        self, client_name: str, status: CommandDistributionStatus
     ) -> None:
-        """Sets the status of all commands on a node.
+        """Sets the status of all commands on a client.
 
         Args:
-            node_name (str): The name of the node.
+            client_name (str): The name of the client.
             status (CommandDistributionStatus): The new status.
         """
-        if self[node_name] is None:
+        if self[client_name] is None:
             logging.warning(
-                f"Attempted to set status of all commands on node {node_name}, but the node is not part of the instruction."
+                f"Attempted to set status of all commands on client {client_name}, but the client is not part of the instruction."
             )
             return
-        for command_uuid in self[node_name].keys():
-            self[node_name][command_uuid] = status
+        for command_uuid in self[client_name].keys():
+            self[client_name][command_uuid] = status
 
-    """The following properties are used to get information about the selection status of the nodes and commands.
-    The selection status of a node gives information about whether the node is selected for the instruction."""
+    """The following properties are used to get information about the selection status of the clients and commands.
+    The selection status of a client gives information about whether the client is selected for the instruction."""
 
     @property
     def selection(self) -> dict[str, bool]:
-        """Returns a dictionary of the selection status of all nodes.
+        """Returns a dictionary of the selection status of all clients.
 
         Returns:
-            dict[str, bool]: A dictionary of the selection status of all nodes.
+            dict[str, bool]: A dictionary of the selection status of all clients.
         """
-        return {node_name: self[node_name] is not None for node_name in self}
+        return {client_name: self[client_name] is not None for client_name in self}
 
     @property
     def selected(self) -> list[str]:
-        """Returns a list of all active nodes.
+        """Returns a list of all active clients.
 
         Returns:
-            list[str]: A list of all active nodes.
+            list[str]: A list of all active clients.
         """
-        return [node_name for node_name in self if self[node_name] is not None]
+        return [client_name for client_name in self if self[client_name] is not None]
 
     @property
     def unselected(self) -> list[str]:
-        """Returns a list of all inactive nodes.
+        """Returns a list of all inactive clients.
 
         Returns:
-            list[str]: A list of all inactive nodes.
+            list[str]: A list of all inactive clients.
         """
-        return [node_name for node_name in self if self[node_name] is None]
+        return [client_name for client_name in self if self[client_name] is None]
 
-    def node_selected(self, node_name: str) -> bool:
-        """Returns whether a node is selected.
+    def client_selected(self, client_name: str) -> bool:
+        """Returns whether a client is selected.
 
         Args:
-            node_name (str): The name of the node.
+            client_name (str): The name of the client.
 
         Returns:
-            bool: Whether a node is selected.
+            bool: Whether a client is selected.
         """
-        return node_name in self.selected
+        return client_name in self.selected
 
-    """The following properties are used to get information about the status of each command on each active node.
+    """The following properties are used to get information about the status of each command on each active client.
     It gives information about whether the command has been requested, is currently executing, has finished executing, or has failed."""
 
-    def node_has_commands_of_status(
+    def client_has_commands_of_status(
         self,
-        node_name: str,
+        client_name: str,
         status: CommandDistributionStatus | list[CommandDistributionStatus],
         check_main_command: bool = False,
         return_for_unselected: bool = True,
     ) -> bool:
-        """Returns whether all commands on a node have a certain status.
+        """Returns whether all commands on a client have a certain status.
 
         Args:
-            node_name (str): The name of the node.
+            client_name (str): The name of the client.
             status (CommandDistributionStatus): The status to check for.
             check_main_command (bool, optional): Whether to only check the main command. Defaults to False.
-            return_for_unselected (bool, optional): Whether to return True if the node is not selected. Defaults to True.
+            return_for_unselected (bool, optional): Whether to return True if the client is not selected. Defaults to True.
 
         Returns:
-            bool: Whether all commands on a node have a certain status.
+            bool: Whether all commands on a client have a certain status.
         """
 
-        if not self.node_selected(node_name):
+        if not self.client_selected(client_name):
             return return_for_unselected
 
         if check_main_command:
-            return self[node_name][self.get_main_command_uuid(node_name)] in to_list(
-                status
-            )
+            return self[client_name][
+                self.get_main_command_uuid(client_name)
+            ] in to_list(status)
 
         return all(
-            [node_status in to_list(status) for node_status in self[node_name].values()]
+            [
+                client_status in to_list(status)
+                for client_status in self[client_name].values()
+            ]
         )
 
     @property
     def active(self) -> list[str]:
-        return self.nodes_with_main_command_status(
+        return self.clients_with_main_command_status(
             [
                 CommandDistributionStatus.SEND,
                 CommandDistributionStatus.STARTED,
             ]
         )
 
-    def node_finished(self, node_name: str) -> bool:
-        """Returns whether all commands on a node have finished.
+    def client_finished(self, client_name: str) -> bool:
+        """Returns whether all commands on a client have finished.
 
         Args:
-            node_name (str): The name of the node.
+            client_name (str): The name of the client.
 
         Returns:
-            bool: Whether all commands on a node have finished.
+            bool: Whether all commands on a client have finished.
         """
-        return self.node_has_commands_of_status(
-            node_name=node_name,
+        return self.client_has_commands_of_status(
+            client_name=client_name,
             status=CommandDistributionStatus.FINISHED,
             check_main_command=False,
             return_for_unselected=True,
         )
 
-    def node_finished_failed_excluded(self, node_name: str) -> bool:
-        """Returns whether all commands on a node have finished or failed or are excluded.
+    def client_finished_failed_excluded(self, client_name: str) -> bool:
+        """Returns whether all commands on a client have finished or failed or are excluded.
 
         Args:
-            node_name (str): The name of the node.
+            client_name (str): The name of the client.
 
         Returns:
-            bool: Whether all commands on a node have finished or failed or are excluded.
+            bool: Whether all commands on a client have finished or failed or are excluded.
         """
-        return self.node_has_commands_of_status(
-            node_name,
+        return self.client_has_commands_of_status(
+            client_name,
             [
                 CommandDistributionStatus.FINISHED,
                 CommandDistributionStatus.FAILED,
@@ -210,48 +223,49 @@ class DistributionStatusTable(dict[str, dict[str, CommandDistributionStatus] | N
         )
 
     def finished_or_failed_or_excluded(self) -> bool:
-        """Returns whether all commands on all nodes have finished or failed or are excluded.
+        """Returns whether all commands on all clients have finished or failed or are excluded.
 
         Returns:
-            bool: Whether all commands on all nodes have finished or failed or are excluded.
+            bool: Whether all commands on all clients have finished or failed or are excluded.
         """
         return all(
             [
-                self.node_finished_failed_excluded(node_name)
-                for node_name in self.selected
+                self.client_finished_failed_excluded(client_name)
+                for client_name in self.selected
             ]
         )
 
-    def nodes_with_main_command_status(
+    def clients_with_main_command_status(
         self, status: CommandDistributionStatus | list[CommandDistributionStatus]
     ) -> list[str]:
-        """Returns a list of nodes that have a certain status for their main command.
+        """Returns a list of clients that have a certain status for their main command.
 
         Args:
             status (CommandDistributionStatus): The status to check for.
 
         Returns:
-            list[str]: A list of nodes that have a certain status for their main command.
+            list[str]: A list of clients that have a certain status for their main command.
         """
         return [
-            node_name
-            for node_name in self.selected
-            if self[node_name][self.get_main_command_uuid(node_name)] in to_list(status)
+            client_name
+            for client_name in self.selected
+            if self[client_name][self.get_main_command_uuid(client_name)]
+            in to_list(status)
         ]
 
     def command_finished_or_failed(self, command_uuid: str) -> bool:
-        """Returns whether all commands on all nodes have finished or failed.
+        """Returns whether all commands on all clients have finished or failed.
 
         Args:
             command_uuid (str): The UUID of the command.
 
         Returns:
-            bool: Whether all commands on all nodes have finished or failed.
+            bool: Whether all commands on all clients have finished or failed.
         """
         command_status = []
-        for node_name in self.selected:
+        for client_name in self.selected:
             try:
-                command_status.append(self[node_name][command_uuid])
+                command_status.append(self[client_name][command_uuid])
             except KeyError:
                 pass
         return all(
@@ -268,11 +282,11 @@ class DistributionStatusTable(dict[str, dict[str, CommandDistributionStatus] | N
     def __repr__(self) -> str:
         """Returns a string representation of the table."""
         vis = {}
-        for node_name, commands in self.items():
-            vis[node_name] = {} if commands is not None else None
+        for client_name, commands in self.items():
+            vis[client_name] = {} if commands is not None else None
             if commands is not None:
                 for command_uuid, status in commands.items():
-                    vis[node_name][command_uuid] = status.name
+                    vis[client_name][command_uuid] = status.name
 
         return json.dumps(vis, indent=3, ensure_ascii=False)
 
@@ -341,6 +355,17 @@ class Distribution(Instruction, Transferable, is_base_type=True):
                     return sub_command
         return None
 
+    def client_started_but_unfinished(self, client_name: str) -> bool:
+        return self.dist_table.client_has_commands_of_status(
+            client_name,
+            [
+                CommandDistributionStatus.SEND,
+                CommandDistributionStatus.STARTED,
+            ],
+            check_main_command=True,
+            return_for_unselected=False,
+        )
+
     def init_distribution_table(
         self,
         topology: Topology,
@@ -398,19 +423,23 @@ class Distribution(Instruction, Transferable, is_base_type=True):
         self.status = InstructionStatus.EXECUTION
 
     def infer_command(
-        self, node_name: str, topology: Topology, resource_manager: ResourceManager
-    ) -> Command | None:
-        """Infer the command to send to a node.
+        self, client_name: str, topology: Topology, resource_manager: ResourceManager
+    ) -> Command:
+        """Infer the command to send to a client.
 
-        This method is called by the server if a node requests a command. It returns the command to send to the node.
+        This method is called by the server if a client requests a command. It returns the command to send to the client.
 
         Args:
-            node_name (str): The UUID of the node to infer the command for
+            client_name (str): The UUID of the client to infer the command for
             topology (Topology): The topology register of the server
             resource_manager (ResourceManager): The resource register of the server
 
         Returns:
-            Command | None: The command to send to the node if the instruction is in the EXECUTION state, None otherwise
+            Command: The command to send to the client
+
+        Raises:
+            NoCommandException: If there is no command for the client
+            TooManyCommandsExecutingException: If there are too many commands executing
         """
 
         if self.status is InstructionStatus.CREATED:
@@ -418,35 +447,41 @@ class Distribution(Instruction, Transferable, is_base_type=True):
             self._on_init(topology=topology, resource_manager=resource_manager)
 
         elif self.status is InstructionStatus.EXECUTION:
-            # check if the node already received its command
-            if self.dist_table.node_has_commands_of_status(
-                node_name,
+            # check if the client already received its command
+            if self.dist_table.client_has_commands_of_status(
+                client_name,
                 CommandDistributionStatus.UNREQUESTED,
                 check_main_command=True,
                 return_for_unselected=False,
             ):
-                # check if simultaneous execution is enabled and if there are already too many active nodes
+                # check if simultaneous execution is enabled and if there are already too many active clients
                 if not (
                     self.simultaneous_execution > 0
                     and len(self.dist_table.active) >= self.simultaneous_execution
                 ):
-                    # set the status of commands of the node to SEND
-                    self.dist_table.set_for_all_node_commands(
-                        node_name, CommandDistributionStatus.SEND
+                    # set the status of commands of the client to SEND
+                    self.dist_table.set_for_all_client_commands(
+                        client_name, CommandDistributionStatus.SEND
                     )
 
-                    # get the command uuid for the node
-                    command_uuid = self.dist_table.get_main_command_uuid(node_name)
+                    # get the command uuid for the client
+                    command_uuid = self.dist_table.get_main_command_uuid(client_name)
 
                     # get the command using the uuid
                     command = self.get_command_by_uuid(command_uuid)
 
                     # return the command
-                    return command.node_specific_modification(
-                        self.dist_table, node_name=node_name
+                    return command.client_specific_modification(
+                        self.dist_table, client_name=client_name
+                    )
+                else:
+                    raise TooManyCommandsExecutingException(
+                        f"Too many commands executing. Maximum number of simultaneous executions: {self.simultaneous_execution}"
                     )
 
-        return None
+        raise NoCommandException(
+            f"No command for client {client_name} in instruction {self.uuid}"
+        )
 
     def handle_status_update(
         self,
@@ -466,12 +501,12 @@ class Distribution(Instruction, Transferable, is_base_type=True):
             )
 
         status = CommandDistributionStatus(status_update.status)
-        node_name = status_update.node_name
+        client_name = status_update.client_name
 
-        # if the node is excluded, ignore the status update
-        if not self.dist_table.node_selected(node_name):
+        # if the client is excluded, ignore the status update
+        if not self.dist_table.client_selected(client_name):
             logging.warning(
-                f"Received status update for command {status_update.command_uuid} on node {node_name} that is excluded from the distribution."
+                f"Received status update for command {status_update.command_uuid} on client {client_name} that is excluded from the distribution."
             )
             return
 
@@ -482,9 +517,9 @@ class Distribution(Instruction, Transferable, is_base_type=True):
 
         try:
             # set the status of the command
-            self.dist_table[node_name][status_update.command_uuid] = status
+            self.dist_table[client_name][status_update.command_uuid] = status
 
-            node_name = status_update.node_name
+            client_name = status_update.client_name
             command_uuid = status_update.command_uuid
 
             # if the command is finished, call the on_client_finish_server_side method of the command
@@ -492,7 +527,7 @@ class Distribution(Instruction, Transferable, is_base_type=True):
                 self.get_command_by_uuid(command_uuid).on_client_finish_server_side(
                     topology=topology,
                     resource_manager=resource_manager,
-                    node_name=node_name,
+                    client_name=client_name,
                     execution_response=status_update.response,
                     instruction_uuid=self.uuid,
                 )
@@ -502,12 +537,12 @@ class Distribution(Instruction, Transferable, is_base_type=True):
                 StatusUpdateNotification(status_update=status_update)
             )
 
-            # if a node is finished, add and remove flags
-            if self.dist_table.node_finished(node_name):
+            # if a client is finished, add and remove flags
+            if self.dist_table.client_finished(client_name):
                 for flag in self.set_flag_after_execution:
-                    topology.set_flag_of_nodes([node_name], flag)
+                    topology.set_flag_of_nodes([client_name], flag)
                 for flag in self.remove_flag_after_execution:
-                    topology.remove_flag_of_nodes([node_name], flag)
+                    topology.remove_flag_of_nodes([client_name], flag)
 
             if self.dist_table.command_finished_or_failed(command_uuid):
                 command = self.get_command_by_uuid(command_uuid)
@@ -525,16 +560,16 @@ class Distribution(Instruction, Transferable, is_base_type=True):
 
         except KeyError:
             logging.warning(
-                f"Received status update for command {status_update.command_uuid} on node {node_name} that is not part of the instruction."
+                f"Received status update for command {status_update.command_uuid} on client {client_name} that is not part of the instruction."
             )
 
     def handle_topology_change(
-        self, node_name: str, topology: Topology, resource_manager: ResourceManager
+        self, client_name: str, topology: Topology, resource_manager: ResourceManager
     ) -> None:
         """Function to handle topology changes
 
         Args:
-            node_name (str): The name of the node that changed.
+            client_name (str): The name of the client that changed.
         """
         raise NotImplementedError(
             "This method must be implemented by the subclass of InstructionLifecycle"
@@ -592,23 +627,25 @@ class OpenDistribution(Distribution):
         topology: Topology,
         resource_manager: ResourceManager,
     ) -> None:
-        # select all current nodes (if new nodes are added, they will be added to the instruction)
-        current_nodes = topology.online_clients(True)
+        # select all current clients (if new clients are added, they will be added to the instruction)
+        current_clients = topology.online_clients(True)
         # open lifecycles can only have one command
         command = self.commands[0]
-        # add the nodes to the distribution table
-        for node_name in current_nodes:
-            self.dist_table.add_node(node_name, command_uuids=[command.uuid])
+        # add the clients to the distribution table
+        for client_name in current_clients:
+            self.dist_table.add_client(client_name, command_uuids=[command.uuid])
 
     def handle_topology_change(
-        self, node_name: str, topology: Topology, resource_manager: ResourceManager
+        self, client_name: str, topology: Topology, resource_manager: ResourceManager
     ) -> None:
-        # in an open lifecycle, new nodes are added to the instruction
-        if node_name not in self.dist_table:
-            self.dist_table.add_node(node_name, command_uuids=[self.commands[0].uuid])
-        # if a node is removed from the topology, remove it from the instruction
-        if topology.get_client_by_name(node_name).status == NodeStatus.OFFLINE:
-            del self.dist_table[node_name]
+        # in an open lifecycle, new clients are added to the instruction
+        if client_name not in self.dist_table:
+            self.dist_table.add_client(
+                client_name, command_uuids=[self.commands[0].uuid]
+            )
+        # if a client is removed from the topology, remove it from the instruction
+        if topology.get_client_by_name(client_name).status == NodeStatus.OFFLINE:
+            del self.dist_table[client_name]
 
 
 class ClosedDistribution(Distribution):
@@ -639,7 +676,7 @@ class ClosedDistribution(Distribution):
         self.selector = selector or AllSelector()
 
     def _check_for_finish(self, topology: Topology, resource_manager: ResourceManager):
-        # if all nodes are finished, call the on_finish method
+        # if all clients are finished, call the on_finish method
         if self.dist_table.finished_or_failed_or_excluded():
             self._on_finish(topology, resource_manager)
 
@@ -648,20 +685,20 @@ class ClosedDistribution(Distribution):
         topology: Topology,
         resource_manager: ResourceManager,
     ) -> None:
-        # use the selector to select nodes for the instruction
+        # use the selector to select clients for the instruction
         selection = self.selector.selection(topology, self.commands)
 
-        for node_name, command_uuid in selection.items():
-            # if a node is not selected, add it to the distribution table with the excluded status
+        for client_name, command_uuid in selection.items():
+            # if a client is not selected, add it to the distribution table with the excluded status
             if command_uuid is None:
-                self.dist_table.add_node(node_name)
+                self.dist_table.add_client(client_name)
             else:
                 # get the command uuids of the selected command
                 command = self.get_command_by_uuid(command_uuid)
                 uuids = list(command.get_command_tree(True).keys())
-                self.dist_table.add_node(node_name, command_uuids=uuids)
+                self.dist_table.add_client(client_name, command_uuids=uuids)
 
-        # if no nodes are selected, set the status to COMPLETED
+        # if no clients are selected, set the status to COMPLETED
         self._check_for_finish(topology, resource_manager)
 
     def handle_status_update(
@@ -679,12 +716,12 @@ class ClosedDistribution(Distribution):
         self._check_for_finish(topology, resource_manager)
 
     def handle_topology_change(
-        self, node_name: str, topology: Topology, resource_manager: ResourceManager
+        self, client_name: str, topology: Topology, resource_manager: ResourceManager
     ) -> None:
-        # in a fixed lifecycle, new nodes are not added to the instruction
-        if node_name not in self.dist_table:
+        # in a fixed lifecycle, new clients are not added to the instruction
+        if client_name not in self.dist_table:
             return
-        # if a node is removed from the topology, remove it from the instruction
-        if topology.get_client_by_name(node_name).status == NodeStatus.OFFLINE:
-            self.dist_table[node_name] = None
+        # if a client is removed from the topology, remove it from the instruction
+        if topology.get_client_by_name(client_name).status == NodeStatus.OFFLINE:
+            self.dist_table[client_name] = None
             self._check_for_finish(topology, resource_manager)

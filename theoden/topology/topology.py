@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from enum import Enum
 from threading import Thread
@@ -44,6 +45,11 @@ class Node:
         self.status = status
         self.last_active = time.time()
 
+    @property
+    def is_online(self) -> bool:
+        """Returns True if the node is online, False otherwise"""
+        return self.status == NodeStatus.ONLINE
+
 
 class Topology:
     def __init__(
@@ -61,15 +67,19 @@ class Topology:
         self.watcher = watcher_pool
         self.resource_manager = resource_manager
 
-        observer = Thread(target=observer.observe, args=(self,)) if observer else None
-        observer.start() if observer else None
+        self.observer = (
+            Thread(target=observer.observe, args=(self,), daemon=True)
+            if observer
+            else None
+        )
+        self.observer.start() if self.observer else None
 
     @staticmethod
     def load_from_yaml(yaml_file: str | None) -> dict[str, Node] | None:
         if yaml_file is None:
             return None
 
-        print(f"Loading topology from {yaml_file}")
+        logging.info(f"Loading topology from {yaml_file}")
 
         with open(yaml_file, "r") as f:
             yaml_data = yaml.safe_load(f)
@@ -86,7 +96,8 @@ class Topology:
         return self
 
     def remove_lifecycle(self, lifecycle: "Distribution") -> Topology:
-        self.lifecycle_pool.remove(lifecycle)
+        if lifecycle in self.lifecycle_pool:
+            self.lifecycle_pool.remove(lifecycle)
         return self
 
     def _inform_about_change(self, node_name: str, include_pool: bool = True):
@@ -186,7 +197,7 @@ class Topology:
             node_name = self.get_client_by_name(node_name)
         node_name.status = NodeStatus.OFFLINE
 
-        print(f"Node {node_name.name} is offline")
+        logging.info(f"Node {node_name.name} is offline")
 
         self._inform_about_change(node_name.name)
 
@@ -260,11 +271,13 @@ class Topology:
 
         # Draw the graph with customized labels and node colors
         node_colors = [
-            "red"
-            if node == server_node.name
-            else "green"
-            if G.nodes[node]["status"] == "ONLINE"
-            else "gray"
+            (
+                "red"
+                if node == server_node.name
+                else "green"
+                if G.nodes[node]["status"] == "ONLINE"
+                else "gray"
+            )
             for node in G.nodes
         ]
         nx.draw(G, pos, with_labels=False, node_color=node_colors, node_size=250)
@@ -287,9 +300,11 @@ class Topology:
 
         # Draw edges between the server and online clients with a different color
         edge_colors = [
-            "yellow"
-            if edge[0] == server_node.name and edge[1] in online_clients
-            else "gray"
+            (
+                "yellow"
+                if edge[0] == server_node.name and edge[1] in online_clients
+                else "gray"
+            )
             for edge in G.edges()
         ]
         nx.draw_networkx_edges(

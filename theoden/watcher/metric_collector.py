@@ -1,4 +1,3 @@
-from ..common import Transferable
 from .notifications import (
     MetricNotification,
     StatusUpdateNotification,
@@ -7,13 +6,14 @@ from .notifications import (
 from .watcher import Watcher
 
 
-class MetricCollectionWatcher(Watcher, Transferable):
+class MetricCollectionWatcher(Watcher):
     """Watcher to collect metrics from the framework"""
 
     def __init__(
         self,
-        notification_of_interest: dict[type[WatcherNotification], callable]
-        | None = None,
+        notification_of_interest: (
+            dict[type[WatcherNotification], callable] | None
+        ) = None,
     ) -> None:
         if notification_of_interest is None:
             notification_of_interest = {
@@ -56,7 +56,7 @@ class MetricCollectionWatcher(Watcher, Transferable):
                     ),
                     epoch=status_update.response.get_data().get("epoch", None),
                     metric_type=status_update.response.get_data()["metric_type"],
-                    node_name=status_update.node_name,
+                    client_name=status_update.client_name,
                     command_uuid=status_update.command_uuid,
                 )
             )

@@ -33,7 +33,6 @@ class Action(Instruction, Transferable, is_base_type=True):
             topology (Topology): The topology register.
             resource_manager (ResourceManager): The resource register.
         """
-        print(type(self))
         raise NotImplementedError(
             "The perform method of an Action must be implemented."
         )

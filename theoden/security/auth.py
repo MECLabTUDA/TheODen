@@ -1,7 +1,7 @@
 import logging
 import urllib.parse
 from enum import Enum
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import requests
 import yaml
@@ -91,7 +91,7 @@ class AuthenticationManager:
         if user:
             if verify_hash(password, user.password):
                 if role is None or user.role == role.value:
-                    print(
+                    logging.info(
                         f"Authentication successful for user '{username}' with role '{user.role}'."
                     )
                     return user
@@ -226,12 +226,11 @@ class AuthenticationManager:
         )
 
         if response.status_code == 201:
-            print(f"RabbitMQ user '{username}' created successfully.")
+            logging.info(f"RabbitMQ user '{username}' created successfully.")
         elif response.status_code == 204:
-            print(f"RabbitMQ user '{username}' already exists.")
+            logging.info(f"RabbitMQ user '{username}' already exists.")
         else:
-            print(response.reason)
-            print(
+            logging.error(
                 f"Failed to create RabbitMQ user '{username}'. Status code: {response.status_code}"
             )
         regex_pattern = f"{username}.*"
@@ -256,8 +255,8 @@ class AuthenticationManager:
         )
 
         if response.status_code == 201:
-            print(f"RabbitMQ permissions for '{username}' set successfully.")
+            logging.info(f"RabbitMQ permissions for '{username}' set successfully.")
         else:
-            print(
+            logging.error(
                 f"Failed to set RabbitMQ permissions for '{username}'. Status code: {response.status_code}"
             )

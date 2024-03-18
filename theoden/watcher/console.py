@@ -11,7 +11,6 @@ from pydantic import BaseModel
 from uvicorn import Config, Server
 from websockets.exceptions import ConnectionClosedOK
 
-from ..common import Transferable
 from .metric_collector import MetricCollectionWatcher, Watcher
 from .notifications import (
     InitializationNotification,
@@ -81,7 +80,7 @@ async def main():
 
 
 class StatusRow(BaseModel):
-    node_name: str
+    client_name: str
     uuid: str
     type: str
     status: str
@@ -89,7 +88,7 @@ class StatusRow(BaseModel):
     subcommands: list[StatusRow] | None = None
 
 
-class TheodenConsoleWatcher(MetricCollectionWatcher, Transferable):
+class TheodenConsoleWatcher(MetricCollectionWatcher):
     """Watcher to collect metrics from the framework and save them to Aim"""
 
     def __init__(self) -> None:
@@ -115,11 +114,11 @@ class TheodenConsoleWatcher(MetricCollectionWatcher, Transferable):
             "type": "topology_update",
             "update": [
                 {
-                    "node_name": node.name,
-                    "status": node.status.name,
-                    "flags": node.flags,
+                    "client_name": client.name,
+                    "status": client.status.name,
+                    "flags": client.flags,
                 }
-                for node in notification.topology.clients
+                for client in notification.topology.clients
             ],
         }
         send_message_to_websocket(msg)
@@ -131,12 +130,16 @@ class TheodenConsoleWatcher(MetricCollectionWatcher, Transferable):
             self.last_update_time is None
             or time.time() - self.last_update_time > self.wait_for
         ):
-            dist = self.base_topology.operations[0]
+            dist = self.base_topology.operation_manager.operations[0]
+
+            if not hasattr(dist, "dist_table"):
+                return
+
             dist_table = dist.dist_table
 
             update = []
 
-            for node_name, commands in dist_table.items():
+            for client_name, commands in dist_table.items():
                 # convert commands dict into tuples
                 if not commands:
                     continue
@@ -146,13 +149,13 @@ class TheodenConsoleWatcher(MetricCollectionWatcher, Transferable):
 
                 update.append(
                     StatusRow(
-                        node_name=node_name,
+                        client_name=client_name,
                         uuid=commands[0][0].uuid,
                         type=type(commands[0][0]).__name__,
                         status=commands[0][1].name,
                         subcommands=[
                             StatusRow(
-                                node_name=node_name,
+                                client_name=client_name,
                                 uuid=command.uuid,
                                 type=type(command).__name__,
                                 status=status.name,

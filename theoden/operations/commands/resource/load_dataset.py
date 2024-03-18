@@ -13,11 +13,19 @@ class LoadDatasetCommand(SetResourceCommand, Transferable):
         uuid: str | None = None,
         **kwargs,
     ) -> None:
+        """Load a dataset on the client
+
+        Args:
+            dataset (SampleDataset | dict[str, SampleDataset]): The dataset(s) to load
+            dataset_key (str, optional): The resource key of the dataset. Defaults to "dataset".
+            overwrite (bool, optional): Whether to overwrite the existing dataset. Defaults to True.
+            uuid (str | None, optional): The uuid of the command. Defaults to None.
+        """
         super().__init__(
             key=dataset_key,
             resource=dataset,
             overwrite=overwrite,
-            # if resource_manager is a dict and unpack_dict is True, then unpack the dict and register each key-value pair
+            # if resource is a dict and unpack_dict is True, then unpack the dict and register each key-value pair
             unpack_dict=isinstance(dataset, dict),
             uuid=uuid,
             **kwargs,

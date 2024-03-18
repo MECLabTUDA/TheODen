@@ -1,12 +1,12 @@
+import logging
 from typing import Literal
 
-from ..common import Transferable
 from ..resources import Loss
-from .metric_collector import MetricCollectionWatcher, Watcher
+from .metric_collector import MetricCollectionWatcher
 from .notifications import MetricNotification, NewBestModelNotification
 
 
-class NewBestDetectorWatcher(MetricCollectionWatcher, Transferable):
+class NewBestDetectorWatcher(MetricCollectionWatcher):
     def __init__(
         self,
         metric: str | None = None,
@@ -60,4 +60,6 @@ class NewBestDetectorWatcher(MetricCollectionWatcher, Transferable):
                 ),
                 origin=self,
             )
-            print(f"Current best metric (Round {metric.comm_round}): {self.best_score}")
+            logging.info(
+                f"Current best metric (Round {metric.comm_round}): {self.best_score}"
+            )

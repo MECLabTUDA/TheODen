@@ -11,27 +11,55 @@ from .networking import FileStorage
 from .operations import *
 from .resources import *
 from .topology import *
-from .topology.node import Node
+from .topology.client import Client
 from .topology.server import Server
 
 
-def start_node(
+def start_client(
     communication_address: str = "localhost",
     communication_port: int | None = None,
     resource_address: str | None = None,
     resource_port: int | None = None,
     username: str = "dummy",
     password: str = "dummy",
-    global_context: str = "global_context.yaml",
+    global_context: str | None = None,
     ping_interval: float = 0.2,
     rabbitmq: bool = False,
     ssl: bool = False,
     ssl_context: ssl.SSLContext | None = None,
+    initial_commands: list[Command] | None = None,
+    dataset_paths: dict[str, str] | None = None,
 ):
-    GlobalContext().load_from_yaml(global_context)
+    """Start a client node.
+
+    Args:
+        communication_address (str): The address of the communication interface.
+        communication_port (int): The port of the communication interface.
+        resource_address (str): The address of the resource interface.
+        resource_port (int): The port of the resource interface.
+        username (str): The username of the client.
+        password (str): The password of the client.
+        global_context (str): The path to the global context YAML file.
+        ping_interval (float): The interval at which the client should ping the server.
+        rabbitmq (bool): Whether to use RabbitMQ as the communication interface.
+        ssl (bool): Whether to use SSL for the communication interface.
+        ssl_context (ssl.SSLContext): The SSL context to use for the communication interface.
+    """
+    # Load the global context if it is provided
+    if global_context is not None:
+        GlobalContext().load_from_yaml(global_context)
+
+    # Set the dataset paths if they are provided
+    if dataset_paths is not None:
+        for dataset, path in dataset_paths.items():
+            GlobalContext()["datasets"] = {**GlobalContext()["datasets"], dataset: path}
+
+    # If the username is not "dummy" and the password is "dummy", prompt the user for the password
     if username != "dummy" and password == "dummy":
         password = getpass("Password: ")
-    node = Node(
+
+    # Start the client
+    client = Client(
         communication_address=communication_address,
         communication_port=communication_port,
         resource_address=resource_address,
@@ -42,8 +70,9 @@ def start_node(
         rabbitmq=rabbitmq,
         ssl=ssl,
         ssl_context=ssl_context,
+        initial_commands=initial_commands,
     )
-    node.start()
+    client.start()
 
 
 def start_storage(
@@ -53,6 +82,15 @@ def start_storage(
     ssl_keyfile: str | None = None,
     ssl_certfile: str | None = None,
 ):
+    """Start a file storage node.
+
+    Args:
+        config (str, optional): The path to the node config YAML file. Defaults to None.
+        host (str, optional): The host to bind to. Defaults to "localhost".
+        port (int, optional): The port to bind to. Defaults to 8000.
+        ssl_keyfile (str, optional): The path to the SSL key file. Defaults to None.
+        ssl_certfile (str, optional): The path to the SSL certificate file. Defaults to None.
+    """
     uvicorn.run(
         FileStorage(node_config=config),
         host=host,
@@ -65,7 +103,9 @@ def start_storage(
 def start_server(
     instructions: list[Condition | Instruction | InstructionBundle] | InstructionBundle,
     run_name: str,
-    global_context: str = "global_context.yaml",
+    permanent_conditions: list[Condition] | None = None,
+    open_distribution: OpenDistribution | None = None,
+    global_context: str | None = None,
     communication_address: str | None = None,
     communication_port: int | None = None,
     storage_address: str | None = None,
@@ -78,15 +118,44 @@ def start_server(
     rabbitmq: bool = False,
     ssl_context: ssl.SSLContext | None = None,
     https: bool = False,
+    uvicorn_kwargs: dict = {},
+    exit_on_finish: bool = False,
+    **kwargs,
 ):
-    GlobalContext().load_from_yaml(global_context)
+    """Start a server node.
+
+    Args:
+        instructions (list[Condition | Instruction | InstructionBundle] | InstructionBundle): The instructions to execute.
+        run_name (str): The name of the run.
+        permanent_conditions (list[Condition], optional): The permanent conditions to execute. Defaults to None.
+        open_distribution (OpenDistribution, optional): The open distribution to use. Defaults to None.
+        global_context (str, optional): The path to the global context YAML file. Defaults to "global_context.yaml".
+        communication_address (str, optional): The address of the communication interface. Defaults to None.
+        communication_port (int, optional): The port of the communication interface. Defaults to None.
+        storage_address (str, optional): The address of the storage interface. Defaults to None.
+        storage_port (int, optional): The port of the storage interface. Defaults to None.
+        username (str, optional): The username of the server. Defaults to None.
+        password (str, optional): The password of the server. Defaults to None.
+        config (str, optional): The path to the node config YAML file. Defaults to None.
+        ssl_keyfile (str, optional): The path to the SSL key file. Defaults to None.
+        ssl_certfile (str, optional): The path to the SSL certificate file. Defaults to None.
+        rabbitmq (bool, optional): Whether to use RabbitMQ as the communication interface. Defaults to False.
+        ssl_context (ssl.SSLContext, optional): The SSL context to use for the communication interface. Defaults to None.
+        https (bool, optional): Whether to use HTTPS for the communication interface. Defaults to False.
+    """
+
+    if global_context is not None:
+        GlobalContext().load_from_yaml(global_context)
 
     logging.basicConfig(level=logging.WARNING)
     e = Server(
         debug=True,
-        initial_instructions=instructions
-        if isinstance(instructions, list)
-        else [instructions],
+        initial_instructions=(
+            instructions if isinstance(instructions, list) else [instructions]
+        )
+        + ([Exit()] if exit_on_finish else []),
+        permanent_conditions=permanent_conditions,
+        open_distribution=open_distribution,
         run_name=run_name,
         storage_address=storage_address,
         storage_port=storage_port,
@@ -98,7 +167,9 @@ def start_server(
         rabbitmq=rabbitmq,
         ssl_context=ssl_context,
         https=https,
+        **kwargs,
     )
+
     if not e.rabbitmq:
         uvicorn.run(
             e.communication_interface,
@@ -106,4 +177,5 @@ def start_server(
             port=communication_port or 8000,
             ssl_certfile=ssl_certfile,
             ssl_keyfile=ssl_keyfile,
+            **uvicorn_kwargs,
         )

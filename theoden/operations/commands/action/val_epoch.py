@@ -1,12 +1,12 @@
 import torch
 import tqdm
 
+from ....common import MetricResponse
+from ....resources import Loss, SampleDataset, TorchModel
 from ...commands import Command
-from ....common import Transferable, MetricResponse
-from ....resources import SampleDataset, Loss, Model
 
 
-class ValidateEpochCommand(Command, Transferable):
+class ValidateEpochCommand(Command):
     """Command to validate a model on a dataset split."""
 
     def __init__(
@@ -55,11 +55,11 @@ class ValidateEpochCommand(Command, Transferable):
         """
 
         with torch.no_grad():
-            # gather all required resource_manager from the node
-            model = self.node_rm.gr(self.model_key, Model)
-            losses = self.node_rm.gr("losses", list[Loss])
-            device = self.node_rm.gr("device", str)
-            dataset = self.node_rm.gr(f"dataset:{self.split}", SampleDataset)
+            # gather all required resource_manager from the client
+            model = self.client_rm.gr(self.model_key, TorchModel)
+            losses = self.client_rm.gr("losses", list[Loss])
+            device = self.client_rm.gr("device", str)
+            dataset = self.client_rm.gr(f"dataset:{self.split}", SampleDataset)
             dataloader = dataset.get_dataloader(
                 shuffle=False, batch_size=self.batch_size, num_workers=self.num_workers
             )
@@ -75,15 +75,14 @@ class ValidateEpochCommand(Command, Transferable):
             for batch in t:
                 batch.to(device)
 
-                output = model.eval_call(batch)["_prediction"]
-
-                # append current batch to losses
-                for loss in losses:
-                    loss.append_batch_prediction(batch, output, self.label_key, 0, True)
-
-                # display mean of losses as tqdm postfix
-                post = Loss.create_dict(losses)
-                t.set_postfix(post)
+                model.calc_loss(
+                    batch=batch,
+                    losses=losses,
+                    label_key=self.label_key,
+                    train=False,
+                    communication_round=self.communication_round,
+                )
+                t.set_postfix(Loss.create_dict(losses))
 
         return MetricResponse(
             metrics=Loss.create_dict(losses),

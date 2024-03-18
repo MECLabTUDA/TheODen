@@ -1,12 +1,18 @@
+import logging
 from pathlib import Path
 
-from ..common import GlobalContext, Transferable
+from ..common import GlobalContext
 from ..resources import Loss
-from .notifications import InitializationNotification, NewBestModelNotification
+from .metric_collector import MetricCollectionWatcher
+from .notifications import (
+    InitializationNotification,
+    MetricNotification,
+    NewBestModelNotification,
+)
 from .watcher import Watcher
 
 
-class ModelSaverWatcher(Watcher, Transferable):
+class BestModelSaverWatcher(Watcher):
     def __init__(
         self,
         listen_to: str | None = None,
@@ -54,7 +60,7 @@ class ModelSaverWatcher(Watcher, Transferable):
                 / f"{self.model_key}_best_{notification.split}.pt"
             )
 
-            print(
+            logging.info(
                 f"Saving new best {notification.split} model '{self.model_key}' as '{self.model_key}_best_{notification.split}' to '{path.as_posix()}'"
             )
 
@@ -65,4 +71,47 @@ class ModelSaverWatcher(Watcher, Transferable):
                 resource_key=self.model_key,
                 checkpoint_key="__global__",
                 new_checkpoint_key=f"{self.model_key}_best_{notification.split}",
+            ).save(path=path)
+
+
+class SaveEveryNRoundWatcher(MetricCollectionWatcher):
+    def __init__(
+        self,
+        n_round: int,
+        split="train",
+        save_folder: str | None = None,
+        model_key: str | None = None,
+    ) -> None:
+        super().__init__(None)
+        self.n_round = n_round
+        self.split = split
+        self.save_folder = (
+            save_folder
+            if save_folder is not None
+            else GlobalContext()["model_save_folder"]
+        )
+        self.model_key = model_key
+
+    def _handle_metric(
+        self, notification: MetricNotification, origin: Watcher | None = None
+    ) -> None:
+        if notification.comm_round % self.n_round == 0:
+            cm = self.base_topology.resources.checkpoint_manager
+
+            path = (
+                Path(self.save_folder)
+                / f"{self.model_key}_round_{notification.comm_round}.pt"
+            )
+
+            logging.info(
+                f"Saving model '{self.model_key}' at round {notification.comm_round} to '{path.as_posix()}'"
+            )
+
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            cm.copy_checkpoint(
+                resource_type="model",
+                resource_key=self.model_key,
+                checkpoint_key="__global__",
+                new_checkpoint_key=f"{self.model_key}_round_{notification.comm_round}",
             ).save(path=path)

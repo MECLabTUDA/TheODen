@@ -16,9 +16,9 @@ from . import operations as operations
 from . import models as models
 from . import watcher as watcher
 
-from .start import start_node, start_server, start_storage
+from .start import start_client, start_server, start_storage
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 print(
     f""" _____  _             ___   ____               

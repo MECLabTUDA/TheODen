@@ -5,9 +5,9 @@ from . import SetResourceCommand
 
 
 class InitModelCommand(SetResourceCommand, Transferable):
-    """Command to initialize a model on a node.
+    """Command to initialize a model on a client.
 
-    This command is used to initialize a model on a node. It is used in the following way:
+    This command is used to initialize a model on a client. It is used in the following way:
 
     ```python
     from theoden.operations.commands.resource import InitModelCommand
@@ -28,13 +28,13 @@ class InitModelCommand(SetResourceCommand, Transferable):
         uuid: str | None = None,
         **kwargs
     ) -> None:
-        """Initialize a model on a node.
+        """Initialize a model on a client.
 
         Args:
             model (Model): The model to initialize.
             model_key (str, optional): The key to use to register the model. Defaults to "model".
             overwrite (bool, optional): Whether to overwrite the model if it already exists. Defaults to True.
-            node (Optional["Node"], optional): The node to initialize the model on. Defaults to None.
+            client (Optional["Node"], optional): The client to initialize the model on. Defaults to None.
             uuid (Optional[str], optional): The uuid of the command. Defaults to None.
 
         Raises:
@@ -59,7 +59,7 @@ class InitModelCommand(SetResourceCommand, Transferable):
         Returns:
             Model: The parsed model.
         """
-        return resource.parse_to(self.node_rm.gr("device", str))
+        return resource.parse_to(self.client_rm.gr("device", str))
 
     def all_clients_finished_server_side(
         self,

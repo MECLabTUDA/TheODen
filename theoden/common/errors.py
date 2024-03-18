@@ -46,3 +46,18 @@ class ServerRequestError(Exception):
 class AggregationError(Exception):
     def __init__(self, message="Aggregation Error"):
         self.message = message
+
+
+class NoCommandException(Exception):
+    def __init__(self, message="No Command Exception"):
+        self.message = message
+
+
+class TooManyCommandsExecutingException(Exception):
+    def __init__(self, message="Too Many Commands Excuting Exception"):
+        self.message = message
+
+
+class ClientConfigurationError(Exception):
+    def __init__(self, message="Client Configuration Error"):
+        self.message = message

@@ -1,8 +1,8 @@
 from .condition import Condition
 from .require_nodes import (
-    RequireNumberOfNodesCondition,
-    RequirePercentageOfNodesToBeConnectedCondition,
-    RequireAllNodesToBeConnectedCondition,
-    RequireNumberOfNodesOrRequireAllIfSchemaHasAuthModeCondition,
+    RequireNumberOfClientsCondition,
+    RequireClientsCondition,
+    RequirePercentageOfClientsCondition,
+    RequireAllClientsCondition,
 )
 from .resource_condition import HasResourceCondition

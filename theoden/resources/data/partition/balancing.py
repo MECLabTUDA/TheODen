@@ -15,7 +15,7 @@ class BalancingDistribution(Transferable, is_base_type=True):
         raise NotImplementedError("Please implement this method")
 
 
-class PercentageBalancing(BalancingDistribution, Transferable):
+class PercentageBalancing(BalancingDistribution):
     def __init__(self, percentage: dict[str | int, float]) -> None:
         self.percentage = percentage
 
@@ -51,7 +51,7 @@ class PercentageBalancing(BalancingDistribution, Transferable):
         return indices
 
 
-class EqualBalancing(BalancingDistribution, Transferable):
+class EqualBalancing(BalancingDistribution):
     def __init__(
         self, number_of_partitions: int | None = None, split_along_key: bool = True
     ) -> None:
@@ -99,7 +99,7 @@ class EqualBalancing(BalancingDistribution, Transferable):
             raise NotImplementedError("Not implemented yet")
 
 
-class DirichletBalancing(BalancingDistribution, Transferable):
+class DirichletBalancing(BalancingDistribution):
     def __init__(self, alpha: dict[str | int, float]) -> None:
         self.alpha = alpha
 
@@ -109,7 +109,7 @@ class DirichletBalancing(BalancingDistribution, Transferable):
         return super().__call__(partition_indices, seed, **kwargs)
 
 
-class DiscreteBalancing(BalancingDistribution, Transferable):
+class DiscreteBalancing(BalancingDistribution):
     def __init__(self, balancing: dict[str | int, list[str]]) -> None:
         self.balancing = balancing
 
@@ -122,7 +122,7 @@ class DiscreteBalancing(BalancingDistribution, Transferable):
         return self.balancing
 
 
-class KeyBalancing(BalancingDistribution, Transferable):
+class KeyBalancing(BalancingDistribution):
     def keys(self, **kwargs) -> list[str | int]:
         raise ValueError("The keys are only known after the partitioning")
 
@@ -132,7 +132,7 @@ class KeyBalancing(BalancingDistribution, Transferable):
         return {self.key: partition_indices[self.key]}
 
 
-class LogNormalBalancing(BalancingDistribution, Transferable):
+class LogNormalBalancing(BalancingDistribution):
     def __init__(self, sigma: float, number_of_partitions: int | None = None) -> None:
         self.sigma = sigma
         self.number_of_partitions = number_of_partitions

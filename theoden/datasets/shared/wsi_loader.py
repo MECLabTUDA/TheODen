@@ -9,6 +9,7 @@ import tqdm
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
+from typing_extensions import Self
 
 from ...common import Transferable
 from ...resources.data import DatasetAdapter, Sample
@@ -70,20 +71,24 @@ class WSIDataset(Dataset, Transferable, is_base_type=True):
             ├── institute2
             │   ├── ...
         """
-        self.base_folder = Path(base_folder)
+        self.base_folder = (
+            Path(base_folder) if isinstance(base_folder, str) else base_folder
+        )
         self.image_folder_name = image_folder_name
         self.mask_folder_name = mask_folder_name
         self.depth_metadata = depth_metadata
         self.image_mask_split_mode = image_mask_split_mode
 
+        self.files = []
+
+    def init_after_deserialization(self) -> Self:
         # find all files. Start at the image folder if the image_mask_split_mode is "root" else start at the base folder
         self.files_ = self._recursive_find_files(
-            (self.base_folder / image_folder_name)
-            if image_mask_split_mode == "root"
-            else base_folder
+            (self.base_folder / self.image_folder_name)
+            if self.image_mask_split_mode == "root"
+            else self.base_folder
         )
 
-        self.files = []
         for file in self.files_:
             self.files.append(
                 {
@@ -92,11 +97,17 @@ class WSIDataset(Dataset, Transferable, is_base_type=True):
                     "meta": {
                         key: val
                         for key, val in zip(
-                            depth_metadata if depth_metadata else [] + ["wsi"], file[2]
+                            (
+                                self.depth_metadata
+                                if self.depth_metadata
+                                else [] + ["wsi"]
+                            ),
+                            file[2],
                         )
                     },
                 }
             )
+        return self
 
     def _recursive_find_files(
         self,
@@ -189,7 +200,7 @@ class WSIDataset(Dataset, Transferable, is_base_type=True):
         # add the size of the image to the metadata
         return pair | (
             {"wsi_size": tifffile.TiffFile(image_path).pages[0].shape}
-            if image_path.suffix == ".tif"
+            if image_path.suffix in [".tif", ".tiff"]
             else {"wsi_size": Image.open(image_path).size}
         )
 
@@ -416,9 +427,11 @@ class TiledWSIDataset(Dataset, Transferable, is_base_type=True):
         self.tiling_strategy = tiling_strategy
         self.exclusion_strategy = exclusion_strategy
         self.mapping_strategy = mapping_strategy
-
+        self.tif_reader = tif_reader
         self.tiles = []
 
+    def init_after_deserialization(self) -> Transferable:
+        self.wsi_dataset = self.wsi_dataset.init_after_deserialization()
         for index, sample in enumerate(tqdm.tqdm(self.wsi_dataset, desc="Tiling")):
             tiles = self.tiling_strategy.get_tiles(sample["wsi_size"])
 
@@ -430,10 +443,10 @@ class TiledWSIDataset(Dataset, Transferable, is_base_type=True):
                     }
                 )
 
-        if tif_reader is None:
+        if self.tif_reader is None:
             self.tif_reader = TifReader()
         else:
-            self.tif_reader = tif_reader
+            self.tif_reader = self.tif_reader
 
         if self.exclusion_strategy is not None:
             for tile in tqdm.tqdm(self.tiles, desc="Excluding tiles"):
@@ -443,6 +456,7 @@ class TiledWSIDataset(Dataset, Transferable, is_base_type=True):
 
                 if self.exclusion_strategy.exclude(mask_patch):
                     self.tiles.remove(tile)
+        return self
 
     def __len__(self) -> int:
         return len(self.tiles)
@@ -452,22 +466,21 @@ class TiledWSIDataset(Dataset, Transferable, is_base_type=True):
         sample = self.wsi_dataset[tile["base_index"]]
 
         image_path = Path(self.wsi_dataset.base_folder, *sample["image"])
-        mask_path = Path(self.wsi_dataset.base_folder, *sample["mask"])
-
+        if "mask" in sample:
+            mask_path = Path(self.wsi_dataset.base_folder, *sample["mask"])
+            mask_patch = self.tif_reader.read_patch(mask_path, tile["patch"])
         image_patch = self.tif_reader.read_patch(image_path, tile["patch"])
-        mask_patch = self.tif_reader.read_patch(mask_path, tile["patch"])
 
         if self.mapping_strategy is not None:
             mask_patch = self.mapping_strategy.apply_mapping(mask_patch)
 
         return {
             "image": image_patch,
-            "mask": mask_patch,
             "meta": sample["meta"],
-        }
+        } | ({"mask": mask_patch} if "mask" in sample else {})
 
 
-class AdaptedTiledWSIDataset(DatasetAdapter, Transferable, build=False):
+class AdaptedTiledWSIDataset(DatasetAdapter, Transferable):
     def __init__(
         self,
         wsi_dataset: WSIDataset,
@@ -475,6 +488,7 @@ class AdaptedTiledWSIDataset(DatasetAdapter, Transferable, build=False):
         exclusion_strategy: Exclusion | None = None,
         mapping_strategy: Mapping | None = None,
         name: str | None = None,
+        tif_reader: TifReader | None = None,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -483,6 +497,7 @@ class AdaptedTiledWSIDataset(DatasetAdapter, Transferable, build=False):
                 tiling_strategy=tiling_strategy,
                 exclusion_strategy=exclusion_strategy,
                 mapping_strategy=mapping_strategy,
+                tif_reader=tif_reader,
             ),
             name,
             **kwargs,
@@ -493,12 +508,22 @@ class AdaptedTiledWSIDataset(DatasetAdapter, Transferable, build=False):
         sample = self.dataset[index]
 
         return Sample(
-            data={
-                "image": self.to_tensor(sample["image"]),
-                "segmentation_mask": torch.from_numpy(sample["mask"]).long(),
-            },
+            data=(
+                {
+                    "image": self.to_tensor(sample["image"]),
+                }
+                | (
+                    {"segmentation_mask": torch.from_numpy(sample["mask"]).long()}
+                    if "mask" in sample
+                    else {}
+                )
+            ),
             metadata=sample["meta"] | {"dataset": self.name},
         )
 
     def save_as_tif(self, folder: str, force_overwrite: bool = True) -> None:
         self.dataset.wsi_dataset.save_as_tif(folder, force_overwrite)
+
+    def init_after_deserialization(self) -> Self:
+        self.dataset = self.dataset.init_after_deserialization()
+        return self

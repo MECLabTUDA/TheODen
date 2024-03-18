@@ -1,13 +1,10 @@
 from copy import deepcopy
 
-from theoden.common import Transferable
 from theoden.operations.commands.command import Command
 from theoden.operations.commands.meta.sequential import SequentialCommand
 
 
-class RepeatNTimesCommand(
-    SequentialCommand, Transferable, return_super_class_dict=True
-):
+class RepeatNTimesCommand(SequentialCommand, return_super_class_dict=True):
     def __init__(self, base_command: Command, n: int, **kwargs) -> None:
         """The RepeatNTimesCommand is a convenience class for creating a sequence of commands that repeats a given command n times.
 

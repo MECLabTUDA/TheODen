@@ -78,6 +78,6 @@ class MetricNotification(WatcherNotification):
     metric_type: str
     comm_round: int | None = None
     epoch: int | None = None
-    node_name: str | None = None
+    client_name: str | None = None
     is_aggregate: bool = False
     command_uuid: str | None = None

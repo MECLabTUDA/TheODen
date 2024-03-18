@@ -47,18 +47,18 @@ class Sample(dict):
                 self[k] = v.to(device)
         return self
 
-    def print_data_types(self):
+    def print_data_types(self) -> None:
         print("\033[1mKey: Data Type\033[0m")
         for key, value in self.items():
             print(
                 f"\033[1m{key}\033[0m: {type(value).__module__ + '.' + type(value).__name__}"
             )
 
-    def __contains__(self, item: str):
+    def __contains__(self, item: str) -> bool:
         return item in self.keys()
 
     def __repr__(self) -> str:
-        # datatypes for each key, metatdat
+        # datatypes for each key, metadata
         types = {k: type(v) for k, v in self.items()}
         return f"Sample({types}, {self.metadata})"
 

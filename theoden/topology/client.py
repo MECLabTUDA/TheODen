@@ -1,7 +1,8 @@
 # import torch.multiprocessing as mp
 import asyncio
+import logging
 import ssl
-from multiprocessing import Manager, Process
+from multiprocessing import Event, Manager, Process
 
 import requests
 
@@ -13,14 +14,14 @@ from ..common import (
     UnauthorizedError,
 )
 from ..networking.rabbitmq import ClientToMQInterface
-from ..networking.rest import RestNodeInterface
+from ..networking.rest import RestClientInterface
 from ..networking.storage import FileStorageInterface
 from ..operations import Command, ServerRequest
 from ..resources.resource import ResourceManager
 from ..security.operation_protection import OperationBlackList, OperationWhiteList
 
 
-class Node:
+class Client:
     def __init__(
         self,
         communication_address: str = "localhost",
@@ -34,28 +35,31 @@ class Node:
         ssl: bool = False,
         ssl_context: ssl.SSLContext | None = None,
         operation_protection: OperationWhiteList | OperationBlackList | None = None,
+        initial_commands: list[Command] | None = None,
     ) -> None:
-        """A federated learning node.
+        """A federated learning client.
 
         Args:
             communication_address (str): The address of the server.
             communication_port (int, optional): The port of the server. Defaults to None.
             resource_address (str, optional): The address of the resource_manager server. Defaults to None.
             resource_port (int, optional): The port of the resource_manager server. Defaults to None.
-            username (str, optional): The username of the node. Defaults to "dummy".
-            password (str, optional): The password of the node. Defaults to "dummy".
-            ping_interval (float, optional): The interval at which the node will ping the server. Defaults to 1.0.
+            username (str, optional): The username of the client. Defaults to "dummy".
+            password (str, optional): The password of the client. Defaults to "dummy".
+            ping_interval (float, optional): The interval at which the client will ping the server. Defaults to 1.0.
             rabbitmq (bool, optional): Whether to use RabbitMQ for communication. Defaults to True.
-            operation_protection (OperationWhiteList | OperationBlackList | None, optional): A list of operations that the node is allowed to execute. Defaults to None.
+            operation_protection (OperationWhiteList | OperationBlackList | None, optional): A list of operations that the client is allowed to execute. Defaults to None.
+            initial_commands (list[Command] | None, optional): A list of commands to be executed by the client. Defaults to None.
         """
 
         # Initialize the command queue and resource register as empty dictionaries
-        self.uuid: str | None = None
         self.ping_interval = ping_interval
         self.operation_protection = operation_protection
 
-        # Initialize the command queue as a list. This will hold all the commands that the node has to execute.
-        self.command_queue: list[dict] = Manager().list([])
+        # Initialize the command queue as a list. This will hold all the commands that the client has to execute.
+        self.command_queue: list[dict] = Manager().list(
+            [] if initial_commands is None else initial_commands
+        )
 
         # Initialize the resource register. This will hold all the resource_manager that are required for the commands.
         self.resources: ResourceManager = ResourceManager(
@@ -81,7 +85,7 @@ class Node:
                 ssl_context=ssl_context,
             )
         else:
-            self.network_interface = RestNodeInterface(
+            self.network_interface = RestClientInterface(
                 command_queue=self.command_queue,
                 address=communication_address,
                 port=communication_port or 8000,
@@ -96,14 +100,16 @@ class Node:
         # Initialize the processes as an empty list
         self.processes: list[Process] = []
 
-    def _run_node(self, fn):
+        self.stop_event = Event()
+
+    def _run_client(self, fn, *args):
         # Run an async function in an event loop
-        asyncio.run(fn())
+        asyncio.run(fn(*args))
 
     def start(self):
-        """Start the node.
+        """Start the client.
 
-        This method will register the node with the server and start the command queue and serverrequests queue.
+        This method will register the client with the server and start the command queue and serverrequests queue.
         """
 
         # Create two separate processes to execute command queue and serverrequests queue
@@ -112,10 +118,12 @@ class Node:
 
         try:
             command_process = Process(
-                target=self._run_node, args=(self.start_command_queue,)
+                target=self._run_client,
+                args=(self.start_command_queue,),
             )
             request_process = Process(
-                target=self._run_node, args=(self.network_interface.start_request_loop,)
+                target=self._run_client,
+                args=(self.network_interface.start_request_loop, self.stop_event),
             )
 
             # Append the processes to the processes list
@@ -133,16 +141,14 @@ class Node:
             self.stop()
 
     def stop(self):
-        # Terminate and join all processes in the processes list
-        for p in self.processes:
-            p.terminate()
-            p.join()
+        # Set the stop event
+        self.stop_event.set()
 
         # Reset the processes list
         self.processes = []
 
     async def start_command_queue(self) -> None:
-        while True:
+        while not self.stop_event.is_set():
             try:
                 # Pop the first command from the command queue
                 command_json = self.command_queue.pop(0)
@@ -162,11 +168,15 @@ class Node:
                                 f"Command {command.__name__} is not allowed"
                             )
 
-                # Execute the command on the node
-                command.set_node(self)()
+                logging.debug(f"Executing command {command.__class__.__name__}")
+
+                # Execute the command on the client
+                command.set_client(self)()
 
             # If the command queue is empty, do nothing
             except IndexError:
+                # sleep for 0.1 seconds
+                await asyncio.sleep(0.1)
                 continue
 
     def send_status_update(self, status_update: StatusUpdate) -> requests.Response:

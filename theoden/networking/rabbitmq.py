@@ -16,7 +16,7 @@ from ..common import (
     TransmissionStatusUpdate,
 )
 from ..operations import PullCommandRequest, ServerRequest
-from .interface import NodeInterface
+from .interface import ClientInterface
 from .storage import FileStorageInterface
 
 if TYPE_CHECKING:
@@ -146,7 +146,7 @@ class ServerToMQInterface:
                 .to_object(
                     response["data"],
                     "ServerRequest",
-                    node_name=node.name,
+                    client_name=node.name,
                 )
                 .set_server(self.server)
             )
@@ -171,7 +171,7 @@ class ServerToMQInterface:
         elif response["message_type"] == "StatusUpdate":
             status_update = TransmissionStatusUpdate(**response["data"])
 
-            status_update.node_name = node.name
+            status_update.client_name = node.name
 
             downloaded_resource_manager = {}
 
@@ -186,11 +186,8 @@ class ServerToMQInterface:
             status_update = status_update.refill(downloaded_resource_manager)
             self.server.process_status_update(status_update)
 
-        # except Exception as e:
-        #     print("Error:", e)
 
-
-class ClientToMQInterface(NodeInterface):
+class ClientToMQInterface(ClientInterface):
     def __init__(
         self,
         command_queue: list[dict],
@@ -206,7 +203,7 @@ class ClientToMQInterface(NodeInterface):
         self.port = port
         self.username = username
         self.password = password
-        self.node_name = username
+        self.client_name = username
         self.ssl_context = ssl_context
         self.storage_interface = None
 
@@ -243,7 +240,7 @@ class ClientToMQInterface(NodeInterface):
         channel = connection.channel()
 
         channel.exchange_declare(
-            exchange=f"{self.node_name}_exchange",
+            exchange=f"{self.client_name}_exchange",
             exchange_type="direct",
             durable=True,
         )
@@ -252,7 +249,7 @@ class ClientToMQInterface(NodeInterface):
         channel.queue_declare(queue=self.server_queue_name)
 
         channel.queue_bind(
-            exchange=f"{self.node_name}_exchange", queue=self.client_queue_name
+            exchange=f"{self.client_name}_exchange", queue=self.client_queue_name
         )
 
         if with_consume:
@@ -312,7 +309,7 @@ class ClientToMQInterface(NodeInterface):
         """
 
         self.request_channel.basic_publish(
-            exchange=f"{self.node_name}_exchange",
+            exchange=f"{self.client_name}_exchange",
             routing_key=self.server_queue_name,
             body=transform_dict(request.dict(), "ServerRequest"),
         )
@@ -336,7 +333,7 @@ class ClientToMQInterface(NodeInterface):
 
         # publish status update in the server queue
         self.execute_channel.basic_publish(
-            exchange=f"{self.node_name}_exchange",
+            exchange=f"{self.client_name}_exchange",
             routing_key=self.server_queue_name,
             body=transform_dict(
                 status_update.unload(resource_uuids).dict(), "StatusUpdate"

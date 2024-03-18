@@ -1,6 +1,7 @@
 from ....common import Transferable
 from ....resources import Model, Optimizer, Optimizer_, ResourceManager
 from ....topology import Topology
+from ....watcher import ParameterNotification
 from . import SetResourceCommand
 
 
@@ -15,6 +16,15 @@ class SetOptimizerCommand(SetResourceCommand, Transferable):
         uuid: str | None = None,
         **kwargs,
     ) -> None:
+        """Set the optimizer on the client
+
+        Args:
+            optimizer (Optimizer_): The optimizer to set
+            key (str, optional): The resource key of the optimizer. Defaults to "optimizer".
+            model_key (str, optional): The resource key of the model. Defaults to "model".
+            overwrite (bool, optional): Whether to overwrite the existing optimizer. Defaults to True.
+            uuid (str | None, optional): The uuid of the command. Defaults to None.
+        """
         super().__init__(
             key=key,
             resource=optimizer,
@@ -26,7 +36,7 @@ class SetOptimizerCommand(SetResourceCommand, Transferable):
         self.assert_type = Optimizer
 
     def modify_resource(self, resource: Optimizer_) -> Optimizer:
-        resource = resource.build([self.node_rm.gr(self.model_key, Model).module()])
+        resource = resource.build([self.client_rm.gr(self.model_key, Model).module()])
         return resource
 
     def all_clients_finished_server_side(
@@ -35,8 +45,6 @@ class SetOptimizerCommand(SetResourceCommand, Transferable):
         resource_manager: ResourceManager,
         instruction_uuid: str,
     ) -> None:
-        from ....watcher import ParameterNotification
-
         resource_manager.watcher.notify_all(
             notification=ParameterNotification(
                 params={

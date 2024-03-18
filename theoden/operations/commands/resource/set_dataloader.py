@@ -15,6 +15,17 @@ class SetDataLoaderCommand(Command, Transferable):
         uuid: str | None = None,
         **kwargs,
     ) -> None:
+        """Set the dataloader on the client
+
+        Args:
+            batch_size (int, optional): The batch size. Defaults to 16.
+            num_workers (int | None, optional): The number of workers. Defaults to 10.
+            shuffle (bool, optional): Whether to shuffle the data. Defaults to False.
+            pin_memory (bool, optional): Whether to pin the memory. Defaults to False.
+            persistent_workers (bool, optional): Whether to use persistent workers. Defaults to False.
+            split (str, optional): The split to set the dataloader for. Defaults to "train".
+            uuid (str | None, optional): The uuid of the command. Defaults to None.
+        """
         super().__init__(uuid=uuid, **kwargs)
         self.batch_size = batch_size
         self.split = split
@@ -25,7 +36,7 @@ class SetDataLoaderCommand(Command, Transferable):
         self.additional_kwargs = kwargs
 
     def execute(self) -> ExecutionResponse | None:
-        self.node.resources[f"dataloader:{self.split}"] = self.node.resources[
+        self.client.resources[f"dataloader:{self.split}"] = self.client.resources[
             f"dataset:{self.split}"
         ].get_dataloader(
             batch_size=self.batch_size,

@@ -1,13 +1,11 @@
 from torch.utils.data import ConcatDataset
 
-from theoden.common.transferables import Transferable
-
 from ...common import Transferable
 from .dataset import SampleDataset, WrapperSampleDataset
 from .metadata_set import MetadataWrapperDataset
 
 
-class ConcatSampleDataset(WrapperSampleDataset, Transferable):
+class ConcatSampleDataset(WrapperSampleDataset):
     def __init__(
         self, datasets: list[SampleDataset] | dict[int | str, SampleDataset]
     ) -> None:

@@ -1,4 +1,5 @@
 import itertools
+import logging
 
 from ....common import GlobalContext, Transferable
 from ..dataset import SampleDataset
@@ -7,7 +8,7 @@ from .balancing import BalancingDistribution
 from .partitions import IndexPartition, Partition
 
 
-class PartitionDataset(SubsetDataset, Transferable, build=False):
+class PartitionDataset(SubsetDataset, Transferable):
     def __init__(
         self,
         dataset: SampleDataset,
@@ -47,15 +48,13 @@ class PartitionDataset(SubsetDataset, Transferable, build=False):
             dataset=base_dataset, force_overwrite=self.force_overwrite, **kwargs
         )
 
-        # print(indices.keys())
-
         # partition the indices using the distribution function
         partitions = self.balancing_function(
             partition_indices=indices, seed=self.seed, **kwargs
         )
 
         if len(partitions[self.partition_key]) < 50:
-            print(
+            logging.info(
                 f"Partition [{partition_key}] with partitions {partitions[self.partition_key]}"
             )
 

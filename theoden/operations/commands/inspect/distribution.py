@@ -1,3 +1,5 @@
+import logging
+
 import torch
 from tqdm import tqdm
 
@@ -18,6 +20,16 @@ class InspectLabelDistributionCommand(Command, Transferable):
         uuid: str | None = None,
         **kwargs,
     ) -> None:
+        """Inspect the label distribution of a dataset
+
+        Args:
+            dataset (str, optional): The key of the dataset to inspect. Defaults to "dataset:train".
+            label (str, optional): The label to inspect. Defaults to "class_label".
+            use_sampler (bool, optional): Whether to use the sampler. Defaults to False.
+            num_classes (int | None, optional): The number of classes. Defaults to 2.
+            start_at (int, optional): The starting class. Defaults to 0.
+            uuid (str | None, optional): The uuid of the command. Defaults to None.
+        """
         super().__init__(uuid=uuid, **kwargs)
         self.dataset = dataset
         self.use_sampler = use_sampler
@@ -26,7 +38,7 @@ class InspectLabelDistributionCommand(Command, Transferable):
         self.start_at = start_at
 
     def execute(self) -> ExecutionResponse | None:
-        dataset = self.node_rm.gr(key=self.dataset, assert_type=SampleDataset)
+        dataset = self.client_rm.gr(key=self.dataset, assert_type=SampleDataset)
 
         labels = torch.zeros(self.num_classes)
 
@@ -40,4 +52,4 @@ class InspectLabelDistributionCommand(Command, Transferable):
             )
 
         for c, v in enumerate(list(labels / torch.sum(labels))):
-            print(f"Class {c + self.start_at}: {v:.2f}")
+            logging.info(f"Class {c + self.start_at}: {v:.2f}")

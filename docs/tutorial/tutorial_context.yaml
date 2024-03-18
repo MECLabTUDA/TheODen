@@ -1,0 +1,5 @@
+partition_folder: ../partitions
+model_save_folder: ../models
+
+datasets:
+  DEFAULT: ../datasets

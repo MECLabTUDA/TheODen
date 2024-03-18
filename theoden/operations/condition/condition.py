@@ -20,3 +20,8 @@ class Condition(ABC, Transferable, is_base_type=True):
             bool: True if the condition is resolved.
         """
         raise NotImplementedError("Please implement this method")
+
+    def __add__(self, other) -> "InstructionBundle":
+        from ..instructions import InstructionBundle
+
+        return InstructionBundle([self, other])

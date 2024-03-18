@@ -6,7 +6,7 @@ from ..common import Transferable
 from .notifications import WatcherNotification
 
 if TYPE_CHECKING:
-    from ..topology.node import Node
+    from ..topology.client import Client
     from ..topology.server import Server
     from .pool import WatcherPool
 
@@ -20,8 +20,9 @@ class Watcher(Transferable, is_base_type=True):
 
     def __init__(
         self,
-        notification_of_interest: dict[type[WatcherNotification], callable]
-        | None = None,
+        notification_of_interest: (
+            dict[type[WatcherNotification], callable] | None
+        ) = None,
         fallback_handler: callable | None = None,
     ) -> None:
         """Initialize the watcher
@@ -46,7 +47,7 @@ class Watcher(Transferable, is_base_type=True):
         return self
 
     @property
-    def base_topology(self) -> "Server" | "Node":
+    def base_topology(self) -> "Server" | "Client":
         """Get the base topology
 
         Returns:

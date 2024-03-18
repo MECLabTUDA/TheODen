@@ -1,0 +1,1 @@
+# Create a Cifar10 demo server and run 3 clients

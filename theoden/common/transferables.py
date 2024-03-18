@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import inspect
+import logging
 from dataclasses import dataclass
 from functools import partial
 from typing import Generic, Literal, Type, TypeVar, Union, get_args, get_origin
 
 import yaml
 from docstring_parser import parse
+from typing_extensions import Self
 
 from .singleton import SingletonMeta
-from .utils import are_classes_from_same_package, hash_dict
+from .utils import hash_dict
 
 T = TypeVar("T")
 
@@ -229,7 +231,7 @@ class Transferable:
         with open(file_path, "w") as f:
             yaml.dump(self.dict(exclude_keys=exclude_keys), f)
 
-    def init_after_deserialization(self) -> Transferable:
+    def init_after_deserialization(self) -> Self:
         """Initialize the object if it has not been initialized yet.
 
         This method should remain empty as it is being defined by the Transferable class
@@ -238,6 +240,9 @@ class Transferable:
             Transferable: initialized object
         """
         return self
+
+    def iad(self) -> Self:
+        return self.init_after_deserialization()
 
     def initialization_hash(self, exclude_keys: list[str] | None = None) -> str:
         """Returns a hash of the initialization parameters of the object.
@@ -306,7 +311,7 @@ class RegisteredObject:
 
 class Transferables(metaclass=SingletonMeta):
     _transferables: dict[str, type[Transferable]] = {}
-    _allow_overwrite = False
+    _allow_overwrite = True
 
     def add_transferable(
         self,
@@ -336,6 +341,10 @@ class Transferables(metaclass=SingletonMeta):
             raise KeyError(
                 f"The key {cls.__name__} already exists and overwriting is not allowed."
             )
+        elif cls.__name__ in self and self._allow_overwrite and not implements:
+            logging.warning(
+                f"The key {cls.__name__} already exists and will be overwritten."
+            )
 
         # If the class implements another class, add the implemented class to the object's implementation.
         if implements:
@@ -343,18 +352,19 @@ class Transferables(metaclass=SingletonMeta):
         else:
             """
             This part will insert the class into the transferables. There it can be accessed by the class name.
-            Different parameters ike an alternative implementation and the base type are saved as well as the
+            Different parameters like an alternative implementation and the base type are saved as well as the
             class metadata.
             """
 
             # check ig the class is from this package or external
-            is_internal = are_classes_from_same_package(type(self), cls)
+            # is_internal = are_classes_from_same_package(type(self), cls)
+            # is_internal = True
 
-            # if the class is external, check if the base type is specified
-            if not is_internal and not is_base_type and base_type is None:
-                raise ValueError(
-                    f"The transferable class `{cls.__name__}` has no Theoden base type. Please specify the base type."
-                )
+            # # if the class is external, check if the base type is specified
+            # if not is_internal and not is_base_type and base_type is None:
+            #     raise ValueError(
+            #         f"The transferable class `{cls.__name__}` has no Theoden base type. Please specify the base type."
+            #     )
 
             # find base type of the class e.g. for an Augmentation this would be the Augmentation class
             if is_base_type:
@@ -369,8 +379,10 @@ class Transferables(metaclass=SingletonMeta):
                     # check if the base type is specified based on the class hierarchy
                     base_types = self.base_types
                     for class_ in cls.__mro__:
-                        if class_ in base_types:
-                            base_type_ = class_
+                        if class_ in self:
+                            base_type_ = (
+                                class_ if class_ in base_types else class_.base_type
+                            )
                             break
                     else:
                         raise ValueError(

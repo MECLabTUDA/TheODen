@@ -1,4 +1,5 @@
 import json
+import logging
 from collections import Counter
 from pathlib import Path
 
@@ -171,7 +172,7 @@ class MultiClassSampler(DataSampler, Transferable):
         # get weight per class
         weight_per_class = labels / sum_count
 
-        print("Dist:", weight_per_class)
+        logging.debug("Dist:", weight_per_class)
 
         # set sample weights to have uniform probability per class
         inverted = 1 / (weight_per_class + self.temperature)
@@ -184,7 +185,7 @@ class MultiClassSampler(DataSampler, Transferable):
 
         balanced = inverted / sum_inverted
 
-        print("Weights:", balanced)
+        logging.debug("Weights:", balanced)
 
         weights = []
 

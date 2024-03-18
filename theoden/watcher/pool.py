@@ -7,12 +7,12 @@ from .notifications import WatcherNotification
 from .watcher import Watcher
 
 if TYPE_CHECKING:
-    from ..topology.node import Node
+    from ..topology.client import Client
     from ..topology.server import Server
 
 
 class WatcherPool:
-    def __init__(self, base_topology: "Server" | "Node") -> None:
+    def __init__(self, base_topology: "Server" | "Client") -> None:
         """A pool of watchers
 
         Args:

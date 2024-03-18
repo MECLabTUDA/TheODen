@@ -1,20 +1,20 @@
 import torch
 import tqdm
 
-from theoden.resources import (
-    Loss,
-    SampleDataset,
-    LRScheduler,
-    Optimizer,
-    Model,
+from ....common import MetricResponse
+from ....resources import (
     DataSampler,
     GradientClipper,
+    Loss,
+    LRScheduler,
+    Optimizer,
+    SampleDataset,
+    TorchModel,
 )
-from theoden.operations.commands import Command
-from theoden.common import Transferable, MetricResponse
+from .. import Command
 
 
-class TrainRoundCommand(Command, Transferable):
+class TrainRoundCommand(Command):
     """Command to train a model on a dataset split."""
 
     def __init__(
@@ -24,7 +24,13 @@ class TrainRoundCommand(Command, Transferable):
         num_epochs: int | None = None,
         num_steps: int | None = None,
         model_key: str = "model",
+        optimizer_key: str = "optimizer",
+        losses_key: str = "losses",
+        scheduler_key: str = "scheduler",
         label_key: str = "class_label",
+        clipper_key: str = "clipper",
+        dataset_key: str = "dataset:train",
+        datasampler_key: str = "dataset:train_sampler",
         batch_size: int = 32,
         num_workers: int = 6,
         uuid: str | None = None,
@@ -49,7 +55,13 @@ class TrainRoundCommand(Command, Transferable):
         self.num_steps = num_steps
 
         self.model_key = model_key
+        self.optimizer_key = optimizer_key
+        self.losses_key = losses_key
+        self.scheduler_key = scheduler_key
         self.label_key = label_key
+        self.dataset_key = dataset_key
+        self.clipper_key = clipper_key
+        self.datasampler_key = datasampler_key
         self.batch_size = batch_size
         self.num_workers = num_workers
 
@@ -61,28 +73,51 @@ class TrainRoundCommand(Command, Transferable):
                 "Exactly one of num_epochs and num_steps must be set, but both are None or not None."
             )
 
-    def execute(self) -> MetricResponse:
-        # gather all required resource_manager from the node
-        model = self.node_rm.gr(self.model_key, Model)
-        scheduler = self.node_rm.gr("scheduler", LRScheduler)
-        losses = self.node_rm.gr("losses", list[Loss])
-        device = self.node_rm.gr("device", str)
-        optimizer = self.node_rm.gr("optimizer", Optimizer)
-        dataset = self.node_rm.gr("dataset:train", SampleDataset)
-
-        clipper = self.node_rm.gr("clipper", assert_type=GradientClipper, default=None)
-
-        sampler = self.node_rm.gr(
-            "dataset:train_sampler", assert_type=DataSampler, default=None
+    def _load_resources(
+        self,
+    ) -> tuple[
+        TorchModel,
+        LRScheduler,
+        list[Loss],
+        str,
+        Optimizer,
+        SampleDataset,
+        GradientClipper | None,
+        DataSampler | None,
+    ]:
+        return (
+            self.client_rm.gr(self.model_key, TorchModel),
+            self.client_rm.gr(self.scheduler_key, LRScheduler, default=None),
+            self.client_rm.gr(self.losses_key, list[Loss]),
+            self.client_rm.gr("device", str),
+            self.client_rm.gr(self.optimizer_key, Optimizer),
+            self.client_rm.gr(self.dataset_key, SampleDataset),
+            self.client_rm.gr(self.clipper_key, GradientClipper, default=None),
+            self.client_rm.gr(self.datasampler_key, DataSampler, default=None),
         )
+
+    def execute(self) -> MetricResponse:
+        # gather all required resource_manager from the client
+        (
+            model,
+            scheduler,
+            losses,
+            device,
+            optimizer,
+            dataset,
+            clipper,
+            sampler,
+        ) = self._load_resources()
 
         dataloader = dataset.get_dataloader(
             shuffle=sampler is None,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            sampler=sampler.sampler(dataset.get_dataset_chain(True))
-            if sampler is not None
-            else None,
+            sampler=(
+                sampler.sampler(dataset.get_dataset_chain(True))
+                if sampler is not None
+                else None
+            ),
         )
 
         # add number of epochs and number of steps to one total step
@@ -110,29 +145,21 @@ class TrainRoundCommand(Command, Transferable):
             for batch in dataloader:
                 batch.to(device)
 
-                output = model.training_call(batch, label_key=self.label_key)[
-                    "_prediction"
-                ]
-
-                # append current batch to losses
-                for loss in losses:
-                    loss.append_batch_prediction(
-                        batch,
-                        output,
-                        "_label" if "_label" in batch else batch[self.label_key],
-                        self.communication_round,
-                        False,
-                    )
+                loss = model.calc_loss(
+                    batch=batch,
+                    losses=losses,
+                    label_key=self.label_key,
+                    train=True,
+                    communication_round=self.communication_round,
+                )
 
                 # display mean of losses as tqdm postfix
                 post = Loss.create_dict(losses)
-                post["lr"] = scheduler.get_last_lr()[0]
+                if scheduler is not None:
+                    post["lr"] = scheduler.get_last_lr()[0]
                 pbar.set_postfix(post)
 
                 optimizer.zero_grad()
-
-                # create combined loss based on losses
-                loss = Loss.create_combined_loss(losses)
 
                 # clip gradients
                 if clipper is not None:

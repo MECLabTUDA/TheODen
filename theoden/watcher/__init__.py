@@ -15,5 +15,5 @@ from .notifications import (
 from .aim import AimMetricCollectorWatcher
 from .metric_aggregator import MetricAggregationWatcher
 from .best_detector import NewBestDetectorWatcher
-from .model_saver import ModelSaverWatcher
+from .model_saver import BestModelSaverWatcher, SaveEveryNRoundWatcher
 from .console import TheodenConsoleWatcher

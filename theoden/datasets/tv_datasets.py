@@ -1,3 +1,5 @@
+from typing_extensions import Self
+
 import torch
 from torchvision.datasets import (  # SVHN,; FashionMNIST,; LSUN,; STL10,; KMNIST,; Places365,; ImageNet,
     CIFAR10,
@@ -14,8 +16,8 @@ from ..resources.data.sample import Sample
 
 
 class TorchvisionAdapter(DatasetAdapter):
-    def __init__(self, dataset: VisionDataset, split: str, **kwargs) -> None:
-        super().__init__(dataset, name=f"{type(dataset).__name__}_{split}", **kwargs)
+    def __init__(self, dataset_name: str, split: str, **kwargs) -> None:
+        super().__init__(None, name=f"{dataset_name}_{split}", **kwargs)
 
     def get_sample(self, index: int) -> Sample:
         image, label = self.dataset[index]
@@ -24,67 +26,92 @@ class TorchvisionAdapter(DatasetAdapter):
 
 class CIFAR10_Adapted(
     TorchvisionAdapter,
-    Transferable,
     description="""`CIFAR10 <https://www.cs.toronto.edu/~kriz/cifar.html>`_ Dataset.""",
 ):
     def __init__(
         self,
         root: str | None = None,
         train: bool = False,
+        download: bool = True,
         **kwargs,
     ) -> None:
         super().__init__(
-            CIFAR10(
-                root=GlobalContext().get_dataset_path("cifar10", parameter_path=root),
-                train=train,
-                transform=ToTensor(),
-                download=False,
-            ),
+            type(CIFAR10).__name__,
             split="train" if train else "test",
             **kwargs,
         )
+        self.root = root
+        self.train = train
+        self.download = download
+
+    def init_after_deserialization(self) -> Self:
+        self.dataset = CIFAR10(
+            root=GlobalContext().get_dataset_path("cifar10", parameter_path=self.root),
+            train=self.train,
+            transform=ToTensor(),
+            download=self.download,
+        )
+        return self
 
 
 class CIFAR100_Adapted(
     TorchvisionAdapter,
-    Transferable,
     description="""`CIFAR100 <https://www.cs.toronto.edu/~kriz/cifar.html>`_ Dataset.""",
 ):
     def __init__(
         self,
         root: str | None = None,
         train: bool = False,
+        download: bool = True,
         **kwargs,
     ) -> None:
         super().__init__(
-            CIFAR100(
-                root=GlobalContext().get_dataset_path("cifar100", parameter_path=root),
-                train=train,
-                transform=ToTensor(),
-                download=True,
-            ),
+            type(CIFAR100).__name__,
             split="train" if train else "test",
             **kwargs,
         )
+        self.root = root
+        self.train = train
+        self.download = download
+
+    def init_after_deserialization(self) -> Self:
+        self.dataset = CIFAR100(
+            root=GlobalContext().get_dataset_path("cifar100", parameter_path=self.root),
+            train=self.train,
+            transform=ToTensor(),
+            download=self.download,
+        )
+        return self
 
 
-class MNIST_Adapted(TorchvisionAdapter, Transferable):
+class MNIST_Adapted(TorchvisionAdapter):
     def __init__(
         self,
         root: str | None = None,
         train: bool = False,
+        download: bool = True,
         **kwargs,
     ) -> None:
         super().__init__(
-            MNIST(
-                root=GlobalContext().get_dataset_path("mnist", parameter_path=root),
-                train=train,
-                transform=ToTensor(),
-                download=True,
-            ),
             split="train" if train else "test",
             **kwargs,
         )
+        self.root = root
+        self.train = train
+        self.download = download
+
+    def init_after_deserialization(self) -> Self:
+        self.dataset = (
+            MNIST(
+                root=GlobalContext().get_dataset_path(
+                    "mnist", parameter_path=self.root
+                ),
+                train=self.train,
+                transform=ToTensor(),
+                download=self.download,
+            ),
+        )
+        return self
 
 
 class CelebADataset(DatasetAdapter, Transferable):

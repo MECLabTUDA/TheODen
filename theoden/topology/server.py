@@ -3,88 +3,31 @@ from __future__ import annotations
 import ssl
 import time
 
-from ..common import (
-    ExecutionResponse,
-    ForbiddenOperationError,
-    StatusUpdate,
-    Transferable,
-    Transferables,
-)
+from ..common import ExecutionResponse, ForbiddenOperationError, StatusUpdate
+from ..datasets import *
+from ..models import *
 from ..networking.rabbitmq import ServerToMQInterface
 from ..networking.rest import RestServerInterface
 from ..networking.storage import FileStorage, FileStorageInterface
 from ..operations import *
+from ..resources import *
 from ..resources import ResourceManager
 from ..resources.meta import CheckpointManager
 from ..security.operation_protection import OperationBlackList, OperationWhiteList
 from ..watcher import *
 from .client_status import TimeoutClientStatusObserver
+from .manager import OperationManager
 from .topology import Node, NodeStatus, NodeType, Topology
-
-operation_manager_types = list[Instruction | InstructionBundle | Condition] | None
-
-
-# currently not in use
-class OperationManager(Transferable, is_base_type=True):
-    def __init__(
-        self,
-        initial_operations: operation_manager_types = None,
-        opt_in_operations: operation_manager_types = None,
-        running_operations: operation_manager_types = None,
-        constant_conditions: list[Condition] | None = None,
-        operation_protection: OperationWhiteList | OperationBlackList | None = None,
-    ) -> None:
-        """A class that manages the operations of a server.
-
-        Args:
-            initial_operations (list[Instruction | InstructionBundle | Condition], optional): The initial operations to be executed by the server. Defaults to None.
-            opt_in_operations (list[Instruction | InstructionBundle | Condition], optional): The opt-in operations to be executed by the server. Defaults to None.
-            running_operations (list[Instruction | InstructionBundle | Condition], optional): The running operations to be executed by the server. Defaults to None.
-            constant_conditions (list[Condition], optional): The constant conditions to be checked by the server. Defaults to None.
-        """
-
-        self.operation_protection = operation_protection
-
-        # check if all operations are allowed
-        if (
-            self.operation_protection is not None
-            and not self.operation_protection.allows(
-                initial_operations
-                + opt_in_operations
-                + running_operations
-                + constant_conditions
-            )
-        ):
-            raise ForbiddenOperationError(
-                f"OperationManager initialization is not allowed"
-            )
-
-        self.initial_operations = initial_operations
-        self.opt_in_operations = opt_in_operations
-        self.running_operations = running_operations
-        self.constant_conditions = constant_conditions
-
-    def save_as_dict(self) -> dict[str, list[dict[str, any]]]:
-        return {
-            "initial_operations": [op.dict() for op in self.initial_operations],
-            "opt_in_operations": [op.dict() for op in self.opt_in_operations],
-            "running_operations": [op.dict() for op in self.running_operations],
-            "constant_conditions": [cond.dict() for cond in self.constant_conditions],
-        }
-
-    @staticmethod
-    def load_from_dict(data: dict[str, list[dict[str, any]]]) -> OperationManager:
-        return Transferables().to_object(data, OperationManager)
-
-    def process_status_update(self, status_update: StatusUpdate) -> None:
-        ...
 
 
 class Server:
     def __init__(
         self,
-        initial_instructions: list[Instruction | InstructionBundle | Condition]
-        | None = None,
+        initial_instructions: (
+            list[Instruction | InstructionBundle | Condition] | None
+        ) = None,
+        permanent_conditions: list[Condition] | None = None,
+        open_distribution: OpenDistribution | None = None,
         node_config: str | None = None,
         run_name: str | None = None,
         communication_address: str | None = None,
@@ -98,6 +41,9 @@ class Server:
         rabbitmq: bool = True,
         ssl_context: ssl.SSLContext | None = None,
         https: bool = False,
+        use_aim: bool = False,
+        choosing_metric: str | None = None,
+        start_console: bool = True,
         **kwargs,
     ) -> None:
         """A federated learning server.
@@ -136,11 +82,11 @@ class Server:
             __checkpoints__=CheckpointManager(),
             __storage__=storage_interface,
             __watcher__=WatcherPool(self)
-            .add(AimMetricCollectorWatcher())
+            .add(AimMetricCollectorWatcher() if use_aim else [])
             .add(MetricAggregationWatcher())
-            .add(NewBestDetectorWatcher())
-            .add(ModelSaverWatcher(model_key="model"))
-            .add(TheodenConsoleWatcher())
+            .add(NewBestDetectorWatcher(metric=choosing_metric))
+            .add(BestModelSaverWatcher(model_key="model"))
+            .add(TheodenConsoleWatcher() if start_console else [])
             .add(watcher or [])
             .notify_all(InitializationNotification(run_name=run_name)),
         )
@@ -154,20 +100,16 @@ class Server:
         self.topology = Topology(
             node_config=node_config,
             watcher_pool=self.resources.watcher,
-            observer=TimeoutClientStatusObserver(),
+            observer=TimeoutClientStatusObserver(20),
             resource_manager=self.resources,
         ).add_node(server_node)
 
-        # Initialize the private resource register as an empty dictionary.
-        # This will hold all the resource_manager that the server has access to and that are not to be shared with the nodes.
-        self.private_resource_manager: ResourceManager = ResourceManager()
-
-        # Initialize the history as an empty list. This will hold all the instructions and condition that have been executed by the server.
-        self.history: list[Instruction | InstructionBundle | Condition] = []
-
-        # Initialize the operations as an empty list or with the initial instructions. This will hold all the instructions and conditions that are to be executed by the server.
-        self.operations: list[Instruction | InstructionBundle | Condition] = (
-            initial_instructions if initial_instructions else []
+        # Initialize the operation manager. This will be used to execute the operations.
+        self.operation_manager = OperationManager(
+            operations=initial_instructions or [],
+            operation_protection=self.operation_protection,
+            open_distribution=open_distribution,
+            constant_conditions=permanent_conditions or [],
         )
 
         # Initialize the communication interface as a RestServerInterface. This will be used to enable communication with the nodes.
@@ -177,7 +119,7 @@ class Server:
                 host=communication_address,
                 port=communication_port or 5672,
                 username=username,
-                password=username,
+                password=password,
                 ssl_context=ssl_context,
                 **kwargs,
             )
@@ -203,8 +145,8 @@ class Server:
             ForbiddenOperationError: If the operation is not allowed.
         """
 
-        # Update the last active time of the node
-        self.topology.get_client_by_name(request.node_name).last_active = time.time()
+        # Update the last active time of the client
+        self.topology.get_client_by_name(request.client_name).last_active = time.time()
 
         if (
             self.operation_protection is not None
@@ -222,17 +164,18 @@ class Server:
         return execution_response or ExecutionResponse()
 
     def process_status_update(self, status_update: StatusUpdate) -> None:
-        """Process a status update from a node. This will be called by the communication interface.
+        """Process a status update from a client. This will be called by the communication interface.
 
         Args:
             status_update (StatusUpdate): The status update to process.
         """
 
-        # Update the last active time of the node
-        node_name = status_update.node_name
-        self.topology.get_client_by_name(node_name).last_active = time.time()
+        # Update the last active time of the client
+        # ToDo set onloine if offline
+        client_name = status_update.client_name
+        self.topology.get_client_by_name(client_name).last_active = time.time()
 
         # Process the status update with the first operation in the operations list
-        self.operations[0].handle_status_update(
+        self.operation_manager.process_status_update(
             status_update, self.topology, self.resources
         )

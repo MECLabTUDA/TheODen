@@ -4,7 +4,7 @@ from . import SetResourceCommand
 
 
 class SetLRSchedulerCommand(SetResourceCommand, Transferable):
-    """Set the learning rate scheduler on the node"""
+    """Set the learning rate scheduler on the client"""
 
     def __init__(
         self,
@@ -16,7 +16,7 @@ class SetLRSchedulerCommand(SetResourceCommand, Transferable):
         uuid: str | None = None,
         **kwargs,
     ) -> None:
-        """Set the learning rate scheduler on the node
+        """Set the learning rate scheduler on the client
 
         Args:
             scheduler (Scheduler): The scheduler to set
@@ -42,6 +42,6 @@ class SetLRSchedulerCommand(SetResourceCommand, Transferable):
             LRScheduler: The built scheduler (torch.optim.lr_scheduler._LRScheduler)
         """
         resource = resource.build(
-            self.node_rm.gr(self.optimizer_key, assert_type=Optimizer)
+            self.client_rm.gr(self.optimizer_key, assert_type=Optimizer)
         )
         return resource

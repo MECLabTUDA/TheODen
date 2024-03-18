@@ -1,11 +1,10 @@
 from itertools import chain
 
-from ..common import Transferable
 from .metric_collector import MetricCollectionWatcher, Watcher
 from .notifications import CommandFinishedNotification, MetricNotification
 
 
-class MetricAggregationWatcher(MetricCollectionWatcher, Transferable):
+class MetricAggregationWatcher(MetricCollectionWatcher):
     def __init__(
         self, aggregation_method: str = "mean", clear_after_aggregation: bool = True
     ) -> None:
@@ -49,6 +48,14 @@ class MetricAggregationWatcher(MetricCollectionWatcher, Transferable):
                         )
                     )
 
+                    # continue if there is a metric with score None
+                    if any(
+                        m.metrics.get(metric_name) is None
+                        for m in relevant_metrics
+                        for metric_name in metric_names
+                    ):
+                        continue
+
                     # aggregate the metrics
                     if self.aggregation_method == "mean":
                         aggregated_metric = {
@@ -70,7 +77,7 @@ class MetricAggregationWatcher(MetricCollectionWatcher, Transferable):
                             comm_round=comm_round,
                             epoch=epoch,
                             metric_type=metric_type,
-                            node_name=self.aggregation_method,
+                            client_name=self.aggregation_method,
                             is_aggregate=True,
                             command_uuid=notification.command_uuid,
                         ),

@@ -1,5 +1,3 @@
-from typing import List, Optional, Type
-
 import torch
 from torch.optim import SGD, Adam, Optimizer
 
@@ -22,9 +20,9 @@ for attr in transform_attrs:
 class Optimizer_(Transferable, is_base_type=True):
     def __init__(
         self,
-        opti_class: Type[Optimizer],
-        exclude_layers: Optional[List[str]] = None,
-        include_layers: Optional[List[str]] = None,
+        opti_class: type[Optimizer],
+        exclude_layers: list[str] | None = None,
+        include_layers: list[str] | None = None,
         **kwargs,
     ) -> None:
         """Create an optimizer wrapper.
@@ -46,7 +44,7 @@ class Optimizer_(Transferable, is_base_type=True):
             self.include_layers != None and self.exclude_layers != None
         ), "Either specifically include or exclude layers, not both"
 
-    def build(self, modules: List[torch.nn.Module]) -> Optimizer:
+    def build(self, modules: list[torch.nn.Module]) -> Optimizer:
         """Build the optimizer.
 
         Args:
@@ -86,11 +84,7 @@ class AdamOptimizer(Optimizer_, Transferable):
             lr (float): learning rate
             **kwargs: other arguments for Adam
         """
-        super().__init__(
-            Adam,
-            lr=lr,
-            **kwargs,
-        )
+        super().__init__(Adam, lr=lr, **kwargs)
 
 
 class SGDOptimizer(Optimizer_, Transferable):

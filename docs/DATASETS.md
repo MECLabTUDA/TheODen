@@ -1,6 +1,6 @@
 #  Integrated Datasets
 
-Theoden already provieds adapter for several datasets. The following table shows the currently supported datasets and the corresponding adapter class.
+Theoden already provides adapter for several datasets. The following table shows the currently supported datasets and the corresponding adapter class.
 
 | Dataset                                    |               Adapter Class                |
 | ------------------------------------------ | :----------------------------------------: |

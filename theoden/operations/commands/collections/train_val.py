@@ -1,11 +1,8 @@
-from ....common import Transferable
 from ..action import TrainRoundCommand, ValidateEpochCommand
 from ..meta.sequential import SequentialCommand
 
 
-class TrainValNTimesCommand(
-    SequentialCommand, Transferable, return_super_class_dict=True
-):
+class TrainValNTimesCommand(SequentialCommand, return_super_class_dict=True):
     def __init__(
         self,
         n_epochs: int | None = None,
@@ -17,6 +14,7 @@ class TrainValNTimesCommand(
         val_split: str = "val",
         start_with_val: bool = True,
         end_with_val: bool = True,
+        model_key: str = "model",
         label_key: str = "class_label",
         validate: bool = True,
         **kwargs,
@@ -48,6 +46,7 @@ class TrainValNTimesCommand(
                 label_key=label_key,
                 batch_size=train_batch_size,
                 num_workers=num_workers,
+                model_key=model_key,
             ),
         ]
         if validate and end_with_val:
@@ -58,6 +57,7 @@ class TrainValNTimesCommand(
                     label_key=label_key,
                     batch_size=validation_batch_size,
                     num_workers=num_workers,
+                    model_key=model_key,
                 )
             )
 
@@ -73,6 +73,7 @@ class TrainValNTimesCommand(
                     label_key=label_key,
                     batch_size=validation_batch_size,
                     num_workers=num_workers,
+                    model_key=model_key,
                 )
             ] + commands
         super().__init__(commands, **kwargs)

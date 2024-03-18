@@ -66,7 +66,7 @@ class IndexPartition(Partition, Transferable):
         return {i: [i] for i in range(len(dataset))}
 
 
-class MetadataPartition(Partition, Transferable):
+class MetadataPartition(Partition):
     def __init__(
         self,
         metadata_key: str,
@@ -101,7 +101,7 @@ class MetadataPartition(Partition, Transferable):
         return self._apply_include_exclude(indices)
 
 
-class DataPartition(Partition, Transferable):
+class DataPartition(Partition):
     def __init__(
         self,
         data_key: str,
@@ -142,7 +142,7 @@ class DataPartition(Partition, Transferable):
         return self._apply_include_exclude(indices)
 
 
-class ClassLabelPartition(DataPartition, Transferable):
+class ClassLabelPartition(DataPartition):
     def __init__(
         self,
         exclude: list[str] | None = None,

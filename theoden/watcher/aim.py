@@ -2,7 +2,6 @@ import logging
 
 from aim import Figure, Image, Run
 
-from ..common import Transferable
 from .metric_collector import MetricCollectionWatcher, Watcher
 from .notifications import (
     InitializationNotification,
@@ -12,7 +11,7 @@ from .notifications import (
 )
 
 
-class AimMetricCollectorWatcher(MetricCollectionWatcher, Transferable):
+class AimMetricCollectorWatcher(MetricCollectionWatcher):
     """Watcher to collect metrics from the framework and save them to Aim"""
 
     def __init__(self) -> None:
@@ -39,6 +38,8 @@ class AimMetricCollectorWatcher(MetricCollectionWatcher, Transferable):
         for metric_name, metric_value in metric.metrics.items():
             if not isinstance(metric_name, str):
                 raise ValueError("Metric names must be strings")
+            if metric_value is None:
+                continue
             if not isinstance(metric_value, (float | int)):
                 raise ValueError("Metric values must be floats or int")
 
@@ -47,9 +48,9 @@ class AimMetricCollectorWatcher(MetricCollectionWatcher, Transferable):
                 name=f"{metric_name}_{metric.metric_type}",
                 step=metric.comm_round,
                 context={
-                    "node_name"
-                    if not metric.is_aggregate
-                    else "aggregate": metric.node_name
+                    (
+                        "client_name" if not metric.is_aggregate else "aggregate"
+                    ): metric.client_name
                 },
             )
 

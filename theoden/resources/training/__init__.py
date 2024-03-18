@@ -6,5 +6,12 @@ from .scheduler import (
     Scheduler,
     MultiStepLRScheduler,
 )
-from .model import Model, TorchModel
+from .model import Model, TorchModel, WrappedTorchModel
 from .clipper import GradientClipper
+from .lightly_wrapper import (
+    SimCLRWrapperModel,
+    LightlyLossWrapper,
+    NTXentLossWrapper,
+    LightlyAugmentationWrapper,
+    SimCLRTransformWrapper,
+)
