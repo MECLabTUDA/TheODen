@@ -9,9 +9,6 @@ import numpy as np
 
 
 class SelectRandomOneAggregator(Aggregator):
-    def __init__(self, client_score: type | None = None, **kwargs):
-        super().__init__(client_score, **kwargs)
-
     def aggregate(
         self,
         resource_type: str,

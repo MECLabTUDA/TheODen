@@ -3,7 +3,7 @@ A client is basically a programm that executes the commands that it receives fro
 
 Below is a list of all commands that are implemented in the framework. The commands are grouped into three categories: **Action Commands**, **Helper Commands** and **Meta Commands**.
 
-The name of each command is usually self-explanatory, as one command performs one specific action on the client. The Meta commands can be used to build commands than include multiple od different commands.
+The name of each command is usually self-explanatory, as one command performs one specific action on the client. The Meta commands can be used to build commands that include multiple or different commands.
 
 | Command Name                           | Function                                                                                                                                                           | Link                                                                |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
@@ -37,8 +37,8 @@ The name of each command is usually self-explanatory, as one command performs on
 ## Helper Commands
 | Command Name               | Function                                                                                                                                   |                               Link                               |
 |----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------| :--------------------------------------------------------------: |
-| `RepeatNTimesCommand`      | Repeat a command N times                                                                                                                   |      [link](../theoden/operations/commands/meta/repeat.py)       |
-| `TrainValNTimesCommand`    | Train and validate N times. This command will create a SequentialCommand that gets themultiple train and val rounds as a list of commands. | [link](../theoden/operations/commands/meta/train_val_n_times.py) |
+| `RepeatNTimesCommand`      | Repeat a command N times                                                                                                                   |      [link](../theoden/operations/commands/collections/repeat.py)       |
+| `TrainValNTimesCommand`    | Train and validate N times. This command will create a SequentialCommand that gets the multiple train and val rounds as a list of commands. | [link](../theoden/operations/commands/collections/train_val.py) |
 | `PrintResourceKeysCommand` | Print the keys and datatypes of the client resource manager. Can be used for debugging                                                     |    [link](../theoden/operations/commands/resource/helper.py)     |
 | `ClearResourcesCommand`    | Clear all resources of the client                                                                                                          |    [link](../theoden/operations/commands/resource/helper.py)     |
 | `ExitRunCommand`              | Exits the clients and afterward the server                                                                                                 | [link](../theoden/operations/commands/resource/helper.py)         |

@@ -5,6 +5,7 @@ from .. import Command
 
 
 class SelectTorchEncoderOfModelCommand(Command):
+
     def __init__(
         self,
         base_model_key: str = "model",
@@ -20,6 +21,7 @@ class SelectTorchEncoderOfModelCommand(Command):
         self.overwrite = overwrite
 
     def execute(self) -> None:
+
         base_model = self.client_rm.gr(
             self.base_model_key, assert_type=TorchModel
         ).module()

@@ -1,11 +1,11 @@
 from ....common import Transferable
 from ....resources import StateLoader
 from ...commands import (
+    CalculateClientScoreCommand,
     LoadStateDictCommand,
     SequentialCommand,
     TrainValNTimesCommand,
     ValidateEpochCommand,
-    CalculateClientScoreCommand,
 )
 from ..aggregation.aggregate import Aggregator
 from ..distribution import ClosedDistribution
@@ -98,6 +98,7 @@ class MultiRoundTrainingInstructionBundle(InstructionBundle, Transferable):
                             simultaneous_execution=simultaneous_execution,
                             loader=loader,
                             only_grad=only_grad,
+                            model_keys=[model_key],
                         ),
                         *(post_round_operations if post_round_operations else []),
                     ]
@@ -135,3 +136,5 @@ class MultiRoundTrainingInstructionBundle(InstructionBundle, Transferable):
                 else []
             )
         )
+        print(final_validation)
+        print(self.instructions[-1].commands[0].commands)

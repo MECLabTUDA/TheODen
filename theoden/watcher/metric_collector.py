@@ -22,9 +22,9 @@ class MetricCollectionWatcher(Watcher):
             }
         else:
             if StatusUpdateNotification not in notification_of_interest:
-                notification_of_interest[
-                    StatusUpdateNotification
-                ] = self._handle_status_update
+                notification_of_interest[StatusUpdateNotification] = (
+                    self._handle_status_update
+                )
             if MetricNotification not in notification_of_interest:
                 notification_of_interest[MetricNotification] = self._handle_metric
 

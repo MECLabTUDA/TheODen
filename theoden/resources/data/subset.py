@@ -1,14 +1,11 @@
-import json
-from pathlib import Path
-
 import numpy as np
 from tqdm import tqdm
+from typing_extensions import Self
 
-from ...common import Transferable
 from .dataset import SampleDataset
 
 
-class SubsetDataset(SampleDataset, Transferable, build=False):
+class SubsetDataset(SampleDataset):
     def __init__(
         self,
         dataset: SampleDataset,

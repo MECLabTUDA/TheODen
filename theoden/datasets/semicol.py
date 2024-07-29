@@ -79,7 +79,7 @@ class SemiCOLWeaklyDataset(AdaptedTiledWSIDataset):
             WeaklyWSIDataset(
                 GlobalContext().get_dataset_path(
                     "semicol_weak", default_to_none=True, parameter_path=folder
-                )
+                ),
             ),
             tiling_strategy=Tiling(patch_size=patch_size, overlap=overlap),
             name="SemiCOLWeakly",

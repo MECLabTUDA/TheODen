@@ -17,6 +17,7 @@ class MedianAggregator(Aggregator):
         topology: Topology,
         resource_manager: ResourceManager,
     ) -> dict[str, torch.Tensor]:
+
         new_global_model = {}
 
         # get model keys

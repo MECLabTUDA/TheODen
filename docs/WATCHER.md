@@ -1,6 +1,6 @@
 # Watcher observe the training
 
-Watcher are the main tool for observing the training. They can be used to collect metrics, aggregate them, save the best model, etc. The watcher are implemented as a observer pattern. They are notified by the server about the current status and can react to it. The watcher can also send notifications to the other watchers to trigger a specific action.
+Watcher are the main tool for observing the training. They can be used to collect metrics, aggregate them, save the best model, etc. The watcher are implemented as an observer pattern. They are notified by the server about the current status and can react to it. The watcher can also send notifications to the other watchers to trigger a specific action.
 
 Withing the server or client code, classes can send notifications to the WatcherPool. The WatcherPool will then notify all watcher about the new notification.
 

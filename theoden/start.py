@@ -13,6 +13,7 @@ from .resources import *
 from .topology import *
 from .topology.client import Client
 from .topology.server import Server
+from .watcher import Watcher
 
 
 def start_client(
@@ -120,6 +121,8 @@ def start_server(
     https: bool = False,
     uvicorn_kwargs: dict = {},
     exit_on_finish: bool = False,
+    use_aim: bool = False,
+    watcher: list[Watcher] | None = None,
     **kwargs,
 ):
     """Start a server node.
@@ -142,6 +145,9 @@ def start_server(
         rabbitmq (bool, optional): Whether to use RabbitMQ as the communication interface. Defaults to False.
         ssl_context (ssl.SSLContext, optional): The SSL context to use for the communication interface. Defaults to None.
         https (bool, optional): Whether to use HTTPS for the communication interface. Defaults to False.
+        uvicorn_kwargs (dict, optional): Additional keyword arguments for uvicorn. Defaults to {}.
+        exit_on_finish (bool, optional): Whether to exit the server after finishing. Defaults to False.
+        use_aim (bool, optional): Whether to use AIM for logging. Defaults to False.
     """
 
     if global_context is not None:
@@ -167,6 +173,8 @@ def start_server(
         rabbitmq=rabbitmq,
         ssl_context=ssl_context,
         https=https,
+        use_aim=use_aim,
+        watcher=watcher,
         **kwargs,
     )
 

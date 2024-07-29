@@ -11,7 +11,7 @@ if __name__ == "__main__":
         ClosedDistribution(
             SequentialCommand(
                 [
-                    LoadDatasetCommand(CIFAR10_Adapted("/home/jstieber/data")),
+                    LoadDatasetCommand(CIFAR10_Adapted()),
                     SetPartitionCommand(
                         partition_function=IndexPartition(),
                         balancing_function=EqualBalancing(),

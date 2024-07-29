@@ -20,7 +20,8 @@ if __name__ == "__main__":
                             "resnet18", num_classes=10, pretrained=False, in_chans=3
                         )
                     ),
-                    CalculateSumOfModelParametersCommand(),
+                    NumberOfModelParametersCommand(),
+                    # CalculateSumOfModelParametersCommand(),
                 ]
             )
         ),

@@ -12,7 +12,7 @@ They can also be used in ConditionalCommands to execute a command only if a cert
 | `RequireClientsCondition`             | This condition waits for specific clients to proceed                                                   | [link](../theoden/operations/condition/require_nodes.py)      |
 | `RequirePercentageOfClientsCondition` | This condition waits for a certain percentage of clients to proceed                                    | [link](../theoden/operations/condition/require_nodes.py)      |
 | `RequireAllClientsCondition`          | This condition waits for all clients to proceed                                                        | [link](../theoden/operations/condition/require_nodes.py)      |
-| `HasResourceCondition`              | This condition is met if a certain resource is set in a resource_manager. Used for CondtionalCommands. | [link](../theoden/operations/condition/resource_condition.py) |
+| `HasResourceCondition`              | This condition is met if a certain resource is set in a resource_manager. Used for ConditionalCommands. | [link](../theoden/operations/condition/resource_condition.py) |
 
 
 # Create a condition

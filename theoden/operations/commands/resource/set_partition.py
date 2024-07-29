@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from ....operations import DistributionStatusTable
 
 
-class SetPartitionCommand(Command, Transferable):
+class SetPartitionCommand(Command):
     def __init__(
         self,
         partition_function: Partition | None = None,
@@ -53,7 +53,7 @@ class SetPartitionCommand(Command, Transferable):
                 partition_key=self.partition_key,
                 seed=self.seed,
                 **self.kwargs,
-            ).init_after_deserialization(),
+            ).full_init(),
         )
         return None
 
@@ -118,5 +118,5 @@ class SetLocalPartitionCommand(Command, Transferable):
                     partition_function=self.partition_function,
                     balancing_function=self.balancing_function,
                     seed=self.seed,
-                ).init_after_deserialization(),
+                ).full_init(),
             )

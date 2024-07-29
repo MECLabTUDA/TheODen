@@ -274,9 +274,7 @@ class Topology:
             (
                 "red"
                 if node == server_node.name
-                else "green"
-                if G.nodes[node]["status"] == "ONLINE"
-                else "gray"
+                else "green" if G.nodes[node]["status"] == "ONLINE" else "gray"
             )
             for node in G.nodes
         ]

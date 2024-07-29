@@ -46,4 +46,4 @@ class AnotherTransferable(MyNewBaseTransferable):
 | is_base_type            |      boolean - False      | If True, this class will be a new base class. A base class should be a new type of Class e.g. there is Command base type. |
 | base_type               | type[Transferable] - None | Define the base type class                                                                                                |
 | implements              | type[Transferable] - None | If a transferable gets implemented by other classes, these classes are created instead                                    |
-| return_super_class_dict |      boolean - False      | Return the dictionary of the super class. Useful for Sequentioal Meta Commands                                            |
+| return_super_class_dict |      boolean - False      | Return the dictionary of the super class. Useful for Sequential Meta Commands                                            |

@@ -82,6 +82,8 @@ class WSIDataset(Dataset, Transferable, is_base_type=True):
         self.files = []
 
     def init_after_deserialization(self) -> Self:
+        self.files = []
+
         # find all files. Start at the image folder if the image_mask_split_mode is "root" else start at the base folder
         self.files_ = self._recursive_find_files(
             (self.base_folder / self.image_folder_name)
@@ -422,6 +424,7 @@ class TiledWSIDataset(Dataset, Transferable, is_base_type=True):
         exclusion_strategy: Exclusion | None = None,
         mapping_strategy: Mapping | None = None,
         tif_reader: TifReader | None = None,
+        only_metadata: bool = False,
     ) -> None:
         self.wsi_dataset = wsi_dataset
         self.tiling_strategy = tiling_strategy
@@ -429,9 +432,10 @@ class TiledWSIDataset(Dataset, Transferable, is_base_type=True):
         self.mapping_strategy = mapping_strategy
         self.tif_reader = tif_reader
         self.tiles = []
+        self.only_metadata = only_metadata
 
     def init_after_deserialization(self) -> Transferable:
-        self.wsi_dataset = self.wsi_dataset.init_after_deserialization()
+        self.wsi_dataset = self.wsi_dataset.full_init()
         for index, sample in enumerate(tqdm.tqdm(self.wsi_dataset, desc="Tiling")):
             tiles = self.tiling_strategy.get_tiles(sample["wsi_size"])
 
@@ -465,6 +469,9 @@ class TiledWSIDataset(Dataset, Transferable, is_base_type=True):
         tile = self.tiles[index]
         sample = self.wsi_dataset[tile["base_index"]]
 
+        if self.only_metadata:
+            return {"meta": sample["meta"]}
+
         image_path = Path(self.wsi_dataset.base_folder, *sample["image"])
         if "mask" in sample:
             mask_path = Path(self.wsi_dataset.base_folder, *sample["mask"])
@@ -480,7 +487,7 @@ class TiledWSIDataset(Dataset, Transferable, is_base_type=True):
         } | ({"mask": mask_patch} if "mask" in sample else {})
 
 
-class AdaptedTiledWSIDataset(DatasetAdapter, Transferable):
+class AdaptedTiledWSIDataset(DatasetAdapter):
     def __init__(
         self,
         wsi_dataset: WSIDataset,
@@ -489,6 +496,7 @@ class AdaptedTiledWSIDataset(DatasetAdapter, Transferable):
         mapping_strategy: Mapping | None = None,
         name: str | None = None,
         tif_reader: TifReader | None = None,
+        only_metadata: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -503,9 +511,13 @@ class AdaptedTiledWSIDataset(DatasetAdapter, Transferable):
             **kwargs,
         )
         self.to_tensor = ToTensor()
+        self.only_metadata = only_metadata
 
     def get_sample(self, index: int) -> Sample:
         sample = self.dataset[index]
+
+        if self.only_metadata:
+            return Sample(metadata=sample["meta"] | {"dataset": self.name})
 
         return Sample(
             data=(

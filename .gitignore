@@ -172,7 +172,10 @@ global_context.yaml
 topology.yaml
 users.yaml
 plots.ipynb
+output.pdf
 
-docs/tutorial/models/
 docs/tutorial/partitions
+docs/tutorial/models
 docs/tutorial/datasets/*
+models
+partitions

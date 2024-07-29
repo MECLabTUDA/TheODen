@@ -5,11 +5,11 @@ Aggregation is a combination of client commands and an Aggregation Action as sho
 
 | Aggregator                  | Description                                                                     | Link                                     |
 | --------------------------- |---------------------------------------------------------------------------------|------------------------------------------|
-| `FedAvgAggregator`          | Aggregates the weights of the clients (e.g. mean) and send it as a new metric   | [link](../theoden/aggregator/mean.py)    |
-| `MedianAggregator`          | Aggregates the weights of the clients (e.g. median) and send it as a new metric | [link](../theoden/aggregator/median.py)  |
-| `FedAdamServerOptimizer`    | Aggregates the weights using Adam Optimizer on the server.                      | [link](../theoden/aggregator/max.py)     |
-| `FedAdagradServerOptimizer` | Aggregates the weights using AdaGrad Optimizer on the server.                   | [link](../theoden/aggregator/min.py)     |
-| `FedYogiServerOptimizer`    | Aggregates the weights using Yogi Optimizer on the server.                      | [link](../theoden/aggregator/sum.py)     |
+| `FedAvgAggregator`          | Aggregates the weights of the clients (e.g. mean) and send it as a new metric   | [link](../theoden/operations/instructions/aggregation/fedopt.py#L266)    |
+| `MedianAggregator`          | Aggregates the weights of the clients (e.g. median) and send it as a new metric | [link](../theoden/operations/instructions/aggregation/fedmedian.py)  |
+| `FedAdamServerOptimizer`    | Aggregates the weights using Adam Optimizer on the server.                      | [link](../theoden/operations/instructions/aggregation/fedopt.py#L132)     |
+| `FedAdagradServerOptimizer` | Aggregates the weights using AdaGrad Optimizer on the server.                   | [link](../theoden/operations/instructions/aggregation/fedopt.py#L161)     |
+| `FedYogiServerOptimizer`    | Aggregates the weights using Yogi Optimizer on the server.                      | [link](../theoden/operations/instructions/aggregation/fedopt.py#L173)     |
 
 # Create an aggregator
    

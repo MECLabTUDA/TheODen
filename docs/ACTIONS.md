@@ -8,7 +8,7 @@ Currently, there are two actions that can be used to control the flow of the fra
 
 | Action              | Description                                                                                                                                                                                                      | Link                                                                |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `InitModelAction`   | This Action initializes the global model. You can select different ways ton initialize the model my selecting an Intializer (currently `ServerInitializer`, `FileInitializer` and `SelectRandomOneInitializer`). | [link](../theoden/operations/instructions/initialization.py)        |
+| `InitModelAction`   | This Action initializes the global model. You can select different ways to initialize the model by selecting an Initializer (currently `ServerInitializer`, `FileInitializer` and `SelectRandomOneInitializer`). | [link](../theoden/operations/instructions/initialization.py)        |
 | `AggregationAction` | This Action aggregates the models of the clients. It uses the client checkpoint Manager and an Aggregator class. More details on the aggregation can be found [here](./AGGREGATION.md).                          | [link](../theoden/operations/instructions/aggregation/aggregate.py) |
 
 ## Create an Action

@@ -131,12 +131,7 @@ class ExclusionDataset(SubsetDataset, Transferable):
             force=self.force,
             invert=True,
         )
-
-        # self.save_fingerprint(
-        #     folder=GlobalContext()["partition_folder"],
-        #     additional_fields={"indices": self.indices.tolist()},
-        # )
-
+        print("INDICES", self.indices)
         return self
 
     def __getitem__(self, index):

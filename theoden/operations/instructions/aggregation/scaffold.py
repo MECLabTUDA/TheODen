@@ -15,5 +15,4 @@ class ScaffoldAggregator(Aggregator):
         resources: dict[str, DictCheckpoint],
         topology: Topology,
         resource_manager: ResourceManager,
-    ) -> dict[str, Tensor]:
-        ...
+    ) -> dict[str, Tensor]: ...

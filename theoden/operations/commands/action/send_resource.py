@@ -139,9 +139,10 @@ class SendModelToServerCommand(SendCheckpointToServerCommand):
             dict: The converted model.
         """
 
-        if self.only_grad:
-            sd = resource.get_grad_params_state_dict()
 
+        if self.only_grad:
+            sd=  resource.get_grad_params_state_dict()
+        
         else:
             sd = resource.get_state_dict()
 

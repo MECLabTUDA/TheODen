@@ -1,4 +1,4 @@
-![TheODen Logo](docs/logo.png "TheODen Logo")
+![TheODen Logo](docs/imgs/logo.png "TheODen Logo")
 
 # **The**  **O**pen **D**istributed L**e**arning E**n**vironment (TheODen)
 
@@ -102,7 +102,7 @@ To experience a demonstration of TheODen using the BCSS dataset, follow these st
 
    AIM will display metrics with client IDs as context properties. You can visualize individual client training processes and compare them. The metrics' mean across all clients is also calculated and can be displayed.
 
-![Aim Visualization of Training](docs/aim.png "AIM Visualization")
+![Aim Visualization of Training](docs/imgs/aim.png "AIM Visualization")
 
 Explore TheODen's capabilities through this demo and dive into the world of federated learning!
 

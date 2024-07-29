@@ -26,11 +26,7 @@ class BestModelSaverWatcher(Watcher):
             }
         )
         self.listen_to = listen_to
-        self.save_folder = (
-            save_folder
-            if save_folder is not None
-            else GlobalContext()["model_save_folder"]
-        )
+        self.save_folder = save_folder
         self.model_key = model_key
         self.run_name = ""
 
@@ -38,6 +34,11 @@ class BestModelSaverWatcher(Watcher):
         self, notification: InitializationNotification, origin: Watcher | None = None
     ) -> None:
         self.run_name = notification.run_name
+        self.save_folder = (
+            self.save_folder
+            if self.save_folder is not None
+            else GlobalContext()["model_save_folder"]
+        )
 
     def _handle(
         self, notification: NewBestModelNotification, origin: Watcher | None = None
@@ -80,7 +81,7 @@ class SaveEveryNRoundWatcher(MetricCollectionWatcher):
         n_round: int,
         split="train",
         save_folder: str | None = None,
-        model_key: str | None = None,
+        model_key: str = "model",
     ) -> None:
         super().__init__(None)
         self.n_round = n_round

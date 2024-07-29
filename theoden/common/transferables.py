@@ -244,6 +244,12 @@ class Transferable:
     def iad(self) -> Self:
         return self.init_after_deserialization()
 
+    def full_init(self) -> Self:
+        if hasattr(self, "_FULL_INIT"):
+            return self
+        self._FULL_INIT = True
+        return self.init_after_deserialization()
+
     def initialization_hash(self, exclude_keys: list[str] | None = None) -> str:
         """Returns a hash of the initialization parameters of the object.
 
@@ -482,9 +488,7 @@ class Transferables(metaclass=SingletonMeta):
 
         to_be_created = datatype if not datatype.implemented else datatype.implemented
 
-        return to_be_created.init_from_dict(
-            json_data, **additional_kwargs
-        ).init_after_deserialization()
+        return to_be_created.init_from_dict(json_data, **additional_kwargs).full_init()
 
     def overview(
         self,
@@ -679,7 +683,7 @@ def dict_to_object(
                 return Transferables()[value]
             # Check if the data type is registered and convert using the registered type
             elif type_name in Transferables():
-                return Transferables().to_object(value).init_after_deserialization()
+                return Transferables().to_object(value).full_init()
             else:
                 # Raise TypeError if the data type is not supported
                 raise TypeError("Unsupported data type: {}".format(type_name))

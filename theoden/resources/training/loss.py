@@ -225,7 +225,7 @@ class CELoss(Loss, Transferable):
     def __init__(
         self,
         weight: list[float] | None = None,
-        ignore_index: int = -100,
+        ignore_index: int = -1,
         train: bool = True,
         choosing_criterion: bool = False,
         factor: float = 1.0,

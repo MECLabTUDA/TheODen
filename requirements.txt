@@ -28,3 +28,4 @@ segmentation_models_pytorch
 nibabel
 pika
 websockets
+lightly

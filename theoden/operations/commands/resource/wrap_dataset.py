@@ -26,6 +26,6 @@ class WrapDatasetCommand(Command):
     def execute(self) -> None:
         wrapped_dataset = self.wrapper(
             dataset=self.client_rm.gr(self.dataset, SampleDataset), **self.kwargs
-        ).init_after_deserialization()
+        ).full_init()
         self.client_rm.sr(key=self.dataset, resource=wrapped_dataset)
         return None
