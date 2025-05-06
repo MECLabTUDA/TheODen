@@ -4,6 +4,7 @@ import typer
 
 from theoden import start_client
 
+import ssl as ssl_connector
 
 def main(
     communication_address: str = "localhost",
@@ -30,6 +31,7 @@ def main(
         rabbitmq=rabbitmq,
         ssl=ssl,
         global_context=global_context,
+        ssl_context=ssl_connector.create_default_context() if ssl else None,
     )
 
 
