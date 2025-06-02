@@ -66,3 +66,8 @@ class ServerRequest(ABC, Transferable, is_base_type=True):
     @abstractmethod
     def execute(self) -> ExecutionResponse | None:
         raise NotImplementedError("Please implement this method")
+    
+
+    def __repr__(self):
+        class_name = type(self).__name__
+        return f"{class_name}(uuid={self.uuid}, client_name={self.client_name})"

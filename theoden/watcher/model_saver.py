@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 
 from ..common import GlobalContext
@@ -11,6 +10,8 @@ from .notifications import (
 )
 from .watcher import Watcher
 
+import logging
+logger = logging.getLogger(__name__)
 
 class BestModelSaverWatcher(Watcher):
     def __init__(
@@ -61,7 +62,7 @@ class BestModelSaverWatcher(Watcher):
                 / f"{self.model_key}_best_{notification.split}.pt"
             )
 
-            logging.info(
+            logger.info(
                 f"Saving new best {notification.split} model '{self.model_key}' as '{self.model_key}_best_{notification.split}' to '{path.as_posix()}'"
             )
 
@@ -104,7 +105,7 @@ class SaveEveryNRoundWatcher(MetricCollectionWatcher):
                 / f"{self.model_key}_round_{notification.comm_round}.pt"
             )
 
-            logging.info(
+            logger.info(
                 f"Saving model '{self.model_key}' at round {notification.comm_round} to '{path.as_posix()}'"
             )
 

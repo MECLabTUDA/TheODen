@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 from abc import ABC, abstractmethod
 
 from ...common import (
@@ -20,8 +19,51 @@ from .error import DistributionErrorHandler
 from .instruction import Instruction, InstructionStatus
 from .selection import AllSelector, Selector
 
+import logging
+logger = logging.getLogger(__name__)
 
-class DistributionStatusTable(dict[str, dict[str, CommandDistributionStatus] | None]):
+class ObservableDict(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._on_change("init", None, None)
+
+    def _on_change(self, action, key, value):
+        pass
+        #print(f"Action: {action}, Key: {key}, Value: {value}")
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        self._on_change("set", key, value)
+
+    def __delitem__(self, key):
+        super().__delitem__(key)
+        self._on_change("delete", key, None)
+
+    def clear(self):
+        super().clear()
+        self._on_change("clear", None, None)
+
+    def update(self, *args, **kwargs):
+        super().update(*args, **kwargs)
+        self._on_change("update", None, None)
+
+    def pop(self, key, *args):
+        result = super().pop(key, *args)
+        self._on_change("pop", key, result)
+        return result
+
+    def popitem(self):
+        key, value = super().popitem()
+        self._on_change("popitem", key, value)
+        return key, value
+
+    def setdefault(self, key, default=None):
+        ret = super().setdefault(key, default)
+        if key not in self:
+            self._on_change("setdefault", key, default)
+        return ret
+
+class DistributionStatusTable(ObservableDict[str, ObservableDict[str, CommandDistributionStatus] | None]):
     """A table to keep track of the status of commands distributed to clients.
     ```
     Structure:
@@ -92,7 +134,7 @@ class DistributionStatusTable(dict[str, dict[str, CommandDistributionStatus] | N
             status (CommandDistributionStatus): The new status.
         """
         if self[client_name] is None:
-            logging.warning(
+            logger.warning(
                 f"Attempted to set status of all commands on client {client_name}, but the client is not part of the instruction."
             )
             return
@@ -290,6 +332,17 @@ class DistributionStatusTable(dict[str, dict[str, CommandDistributionStatus] | N
 
         return json.dumps(vis, indent=3, ensure_ascii=False)
 
+    def _on_change(self, action, key, value):
+        logger.info("DistributionStatusTable updated to\n" + self.__repr__())
+
+    def __setitem__(self, key, value):
+        assert isinstance(value, (dict, type(None))), f"Value must be a dict or None, got {type(value)}"
+        value = ObservableDict(value) if value is not None else None
+        super().__setitem__(key, value)
+        if value is not None:
+            value._on_change = self._on_change
+        
+
 
 class StatusUpdateHandler(ABC, Transferable, is_base_type=True):
     @abstractmethod
@@ -353,6 +406,8 @@ class Distribution(Instruction, Transferable, is_base_type=True):
             for sub_command in command.get_command_tree().values():
                 if sub_command.uuid == uuid:
                     return sub_command
+                
+        logger.warning(f"did no find command with uuid {uuid}.")
         return None
 
     def client_started_but_unfinished(self, client_name: str) -> bool:
@@ -505,7 +560,7 @@ class Distribution(Instruction, Transferable, is_base_type=True):
 
         # if the client is excluded, ignore the status update
         if not self.dist_table.client_selected(client_name):
-            logging.warning(
+            logger.warning(
                 f"Received status update for command {status_update.command_uuid} on client {client_name} that is excluded from the distribution."
             )
             return
@@ -513,11 +568,20 @@ class Distribution(Instruction, Transferable, is_base_type=True):
         # if the execution of the command failed, handle the failure
         if status == CommandDistributionStatus.FAILED:
             # TODO: handle failure
+            logger.error(
+                f"Command {status_update.command_uuid} on client {client_name} failed with response: {status_update.response}")
             pass
 
         try:
             # set the status of the command
-            self.dist_table[client_name][status_update.command_uuid] = status
+            if(status > self.dist_table[client_name][status_update.command_uuid]):
+                # Prevent older status updates that took too long from messing up the status
+                self.dist_table[client_name][status_update.command_uuid] = status
+            else:
+                logger.warning(
+                    f"Received status update for command {status_update.command_uuid} on client {client_name} with status {status.name} that is older than the current status {self.dist_table[client_name][status_update.command_uuid].name}. Ignoring the status update."
+                )
+                return
 
             client_name = status_update.client_name
             command_uuid = status_update.command_uuid
@@ -559,7 +623,7 @@ class Distribution(Instruction, Transferable, is_base_type=True):
                 )
 
         except KeyError:
-            logging.warning(
+            logger.warning(
                 f"Received status update for command {status_update.command_uuid} on client {client_name} that is not part of the instruction."
             )
 

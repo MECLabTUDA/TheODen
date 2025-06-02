@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -16,6 +15,8 @@ from ..common import UnauthorizedError
 from ..security.auth import AuthenticationManager, UserRole
 from ..security.token import create_access_token, decode_token
 
+import logging
+logger = logging.getLogger(__name__)
 
 class UploadedItem(BaseModel):
     uuid: UUID | str
@@ -50,7 +51,7 @@ class FileStorage(FastAPI):
             request: Request, exc: RequestValidationError
         ):
             exc_str = f"{exc}".replace("\n", " ").replace("   ", " ")
-            logging.error(f"{request}: {exc_str}")
+            logger.error(f"{request}: {exc_str}")
             content = {"status_code": 10422, "message": exc_str, "data": None}
             return JSONResponse(
                 # content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),

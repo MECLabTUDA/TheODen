@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import random
 from abc import ABC, abstractmethod
 
@@ -8,6 +7,8 @@ from ...common import Transferable
 from ...topology import Topology
 from ..commands import Command
 
+import logging
+logger = logging.getLogger(__name__)
 
 class Selector(ABC, Transferable, is_base_type=True):
     """A distributor is used to select clients from the topology register.
@@ -41,7 +42,7 @@ class BinarySelector(Selector):
         self, topology: Topology, commands: list[Command]
     ) -> dict[str, str | None]:
         if len(commands) > 1:
-            logging.warning(
+            logger.warning(
                 "BinarySelector is not designed for more than one command. Ignoring all but the first command."
             )
 

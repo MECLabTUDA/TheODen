@@ -7,7 +7,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, validator
 
+
 from .transferables import Transferables
+
 
 
 def is_instance_of_type_hint(obj: any, hint: type):
@@ -113,6 +115,15 @@ class ExecutionResponse(BaseModel):
                     return_dict[file_name] = file_load
         return return_dict
 
+    def __str__(self):
+        files_str = f"{self.files}" 
+        if len(files_str) > 100:
+            files_str = f"{files_str[:100]}... (truncated)"
+        data_str = f"{self.data}"
+        if len(data_str) > 100:
+            data_str = f"{data_str[:100]}... (truncated)"
+        return f"{self.__class__.__name__}(data={data_str}, files={files_str}, response_type={self.response_type})"
+
 
 class TransmissionExecutionResponse(BaseModel):
     data: dict | None = None
@@ -216,6 +227,12 @@ class StatusUpdate(BaseModel):
             if self.response
             else None,
         )
+    
+    def __str__(self):
+        from theoden.operations.status import CommandExecutionStatus
+        class_name = self.__class__.__name__
+        status_name = CommandExecutionStatus(self.status).name
+        return f"{class_name}(command_uuid={self.command_uuid}, status={status_name}, datatype={self.datatype}, client_name={self.client_name}, response={self.response})"
 
 
 class TransmissionStatusUpdate(StatusUpdate):

@@ -123,6 +123,9 @@ def start_server(
     exit_on_finish: bool = False,
     use_aim: bool = False,
     watcher: list[Watcher] | None = None,
+    choosing_metric: str | None = None,
+    lower_is_better: bool = False,
+    metric_type: str = None,
     **kwargs,
 ):
     """Start a server node.
@@ -175,6 +178,9 @@ def start_server(
         https=https,
         use_aim=use_aim,
         watcher=watcher,
+        choosing_metric=choosing_metric,
+        lower_is_better=lower_is_better,
+        metric_type=metric_type,
         **kwargs,
     )
 

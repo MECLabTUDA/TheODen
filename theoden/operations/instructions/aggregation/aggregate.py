@@ -1,4 +1,3 @@
-import logging
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -11,6 +10,8 @@ from ....topology import Topology
 from ....watcher import AggregationCompletedNotification
 from .. import Action, Instruction
 
+import logging
+logger = logging.getLogger(__name__)
 
 class Aggregator(ABC, Transferable, is_base_type=True):
     def __init__(self, client_score: type | None = None, **kwargs):
@@ -183,7 +184,7 @@ class AggregationAction(Action):
                 cm = resource_manager.checkpoint_manager
 
                 if len(resource) < 2:
-                    logging.warning(
+                    logger.warning(
                         f"Only one client checkpoint found for resource {resource_type} {resource_key}."
                     )
 

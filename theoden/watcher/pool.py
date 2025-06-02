@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from .notifications import WatcherNotification
@@ -10,6 +9,8 @@ if TYPE_CHECKING:
     from ..topology.client import Client
     from ..topology.server import Server
 
+import logging
+logger = logging.getLogger(__name__)
 
 class WatcherPool:
     def __init__(self, base_topology: "Server" | "Client") -> None:
@@ -62,7 +63,7 @@ class WatcherPool:
             try:
                 watcher.listen(notification, origin=origin)
             except Exception as e:
-                logging.warning(
+                logger.warning(
                     f"Exception while notifying watcher {type(watcher).__name__}: {e}"
                 )
         return self
@@ -87,7 +88,7 @@ class WatcherPool:
                 try:
                     watcher.listen(notification, origin=origin)
                 except Exception as e:
-                    logging.warning(
+                    logger.warning(
                         f"Exception while notifying watcher {type(watcher).__name__}: {e}"
                     )
         return self

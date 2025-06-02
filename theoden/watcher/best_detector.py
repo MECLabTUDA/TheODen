@@ -1,10 +1,11 @@
-import logging
 from typing import Literal
 
 from ..resources import Loss
 from .metric_collector import MetricCollectionWatcher
 from .notifications import MetricNotification, NewBestModelNotification
 
+import logging
+logger = logging.getLogger(__name__)
 
 class NewBestDetectorWatcher(MetricCollectionWatcher):
     def __init__(
@@ -60,6 +61,6 @@ class NewBestDetectorWatcher(MetricCollectionWatcher):
                 ),
                 origin=self,
             )
-            logging.info(
+            logger.info(
                 f"Current best metric (Round {metric.comm_round}): {self.best_score}"
             )

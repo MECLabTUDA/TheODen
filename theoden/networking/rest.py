@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Annotated
 
 import fastapi
@@ -30,6 +29,8 @@ from .storage import FileStorageInterface
 if TYPE_CHECKING:
     from ..topology.server import Server
 
+import logging
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token", auto_error=False)
 
@@ -64,7 +65,7 @@ class RestServerInterface(FastAPI):
             error_message_str = "\n".join(error_messages)
 
             # Log the error message
-            logging.error(f"{request}: {error_message_str}")
+            logger.error(f"{request}: {error_message_str}")
 
             # Create a response with more details
             content = {

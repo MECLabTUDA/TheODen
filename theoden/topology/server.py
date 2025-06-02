@@ -19,6 +19,8 @@ from .client_status import TimeoutClientStatusObserver
 from .manager import OperationManager
 from .topology import Node, NodeStatus, NodeType, Topology
 
+import logging
+logger = logging.getLogger(__name__)
 
 class Server:
     def __init__(
@@ -42,8 +44,10 @@ class Server:
         ssl_context: ssl.SSLContext | None = None,
         https: bool = False,
         use_aim: bool = False,
-        choosing_metric: str | None = None,
         start_console: bool = True,
+        choosing_metric: str | None = None,
+        metric_type: str = None,
+        lower_is_better: bool = False,
         **kwargs,
     ) -> None:
         """A federated learning server.
@@ -84,8 +88,8 @@ class Server:
             __watcher__=WatcherPool(self)
             .add(AimMetricCollectorWatcher() if use_aim else [])
             .add(MetricAggregationWatcher())
-            .add(NewBestDetectorWatcher(metric=choosing_metric))
-            .add(BestModelSaverWatcher(model_key="model"))
+            .add(NewBestDetectorWatcher(metric=choosing_metric, metric_type=metric_type, lower_is_better=lower_is_better))
+            .add(BestModelSaverWatcher(model_key="model", listen_to=choosing_metric)) #TODO maybe "model" should not be hardcoded
             .add(TheodenConsoleWatcher() if start_console else [])
             .add(watcher or [])
             .notify_all(InitializationNotification(run_name=run_name)),
@@ -145,6 +149,11 @@ class Server:
             ForbiddenOperationError: If the operation is not allowed.
         """
 
+        if isinstance(request, PullCommandRequest):
+            logger.debug(f"Processing server request: {request}")
+        else:
+            logger.info(f"Processing server request: {request}")
+
         # Update the last active time of the client
         self.topology.get_client_by_name(request.client_name).last_active = time.time()
 
@@ -152,6 +161,7 @@ class Server:
             self.operation_protection is not None
             and not self.operation_protection.allows(request)
         ):
+            logger.error(f"ServerRequest {type(request).__name__} is not allowed")
             raise ForbiddenOperationError(
                 f"ServerRequest {type(request).__name__} is not allowed"
             )
@@ -161,6 +171,12 @@ class Server:
 
         # Set the server of the request to this server and execute it
         execution_response = request.set_server(self).execute()
+
+        if execution_response.data:
+            logger.info(f"Execution response to {request.client_name}: {execution_response.__str__()}")
+        else:
+            logger.debug(f"Execution response to {request.client_name}: {execution_response.__str__()}")
+
         return execution_response or ExecutionResponse()
 
     def process_status_update(self, status_update: StatusUpdate) -> None:
@@ -169,6 +185,8 @@ class Server:
         Args:
             status_update (StatusUpdate): The status update to process.
         """
+
+        logger.info(f"Processing status update: {status_update}")
 
         # Update the last active time of the client
         # ToDo set onloine if offline

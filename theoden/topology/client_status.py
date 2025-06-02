@@ -1,4 +1,3 @@
-import logging
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
@@ -6,6 +5,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .topology import Topology
 
+import logging
+logger = logging.getLogger(__name__)
 
 class ClientStatusObserver(ABC):
     @abstractmethod
@@ -24,6 +25,6 @@ class TimeoutClientStatusObserver(ClientStatusObserver):
                 if node.is_online:
                     if node.last_active + self.timeout < time.time():
                         topology.set_offline(node.name)
-                        logging.warning(f"Client {node.name} timed out")
+                        logger.warning(f"Client {node.name} timed out")
 
             time.sleep(self.sleep)

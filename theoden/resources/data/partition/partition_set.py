@@ -1,5 +1,4 @@
 import itertools
-import logging
 
 from ....common import GlobalContext, Transferable
 from ..dataset import SampleDataset
@@ -7,6 +6,8 @@ from ..subset import SubsetDataset
 from .balancing import BalancingDistribution
 from .partitions import IndexPartition, Partition
 
+import logging
+logger = logging.getLogger(__name__)
 
 class PartitionDataset(SubsetDataset, Transferable):
     def __init__(
@@ -54,7 +55,7 @@ class PartitionDataset(SubsetDataset, Transferable):
         )
 
         if len(partitions[self.partition_key]) < 50:
-            logging.info(
+            logger.info(
                 f"Partition [{partition_key}] with partitions {partitions[self.partition_key]}"
             )
 

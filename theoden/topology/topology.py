@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import time
 from enum import Enum
 from threading import Thread
@@ -18,6 +17,8 @@ if TYPE_CHECKING:
     from ..operations import Distribution
     from ..watcher import WatcherPool
 
+import logging
+logger = logging.getLogger(__name__)
 
 class NodeStatus(Enum):
     ONLINE = "online"
@@ -79,7 +80,7 @@ class Topology:
         if yaml_file is None:
             return None
 
-        logging.info(f"Loading topology from {yaml_file}")
+        logger.info(f"Loading topology from {yaml_file}")
 
         with open(yaml_file, "r") as f:
             yaml_data = yaml.safe_load(f)
@@ -190,6 +191,8 @@ class Topology:
         node_name.last_active = time.time()
         node_name.status = NodeStatus.ONLINE
 
+        logger.info(f"Node {node_name.name} is online")
+
         self._inform_about_change(node_name.name)
 
     def set_offline(self, node_name: str | Node) -> None:
@@ -197,7 +200,7 @@ class Topology:
             node_name = self.get_client_by_name(node_name)
         node_name.status = NodeStatus.OFFLINE
 
-        logging.info(f"Node {node_name.name} is offline")
+        logger.info(f"Node {node_name.name} is offline")
 
         self._inform_about_change(node_name.name)
 

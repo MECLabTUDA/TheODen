@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 
 import torch
 
@@ -9,6 +8,8 @@ from ....resources import ResourceManager, SampleDataset
 from ....topology import Topology
 from ..command import Command
 
+import logging
+logger = logging.getLogger(__name__)
 
 class ClientScore(Transferable, is_base_type=True):
     def calculate_client_score(
@@ -107,7 +108,7 @@ class CalculateClientScoreCommand(Command):
             execution_response.get_data()["score_type"]
         ] = execution_response.get_data()["score"]
 
-        logging.warn(
+        logger.warning(
             f"Client {client_name} has a score of {execution_response.get_data()['score']} ({execution_response.get_data()['score_type']})"
         )
 

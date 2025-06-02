@@ -131,7 +131,7 @@ class ExclusionDataset(SubsetDataset, Transferable):
             force=self.force,
             invert=True,
         )
-        print("INDICES", self.indices)
+        #print("INDICES", self.indices)
         return self
 
     def __getitem__(self, index):

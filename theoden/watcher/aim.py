@@ -1,5 +1,3 @@
-import logging
-
 from aim import Figure, Image, Run
 
 from .metric_collector import MetricCollectionWatcher, Watcher
@@ -9,7 +7,8 @@ from .notifications import (
     ParameterNotification,
     TopologyChangeNotification,
 )
-
+import logging
+logger = logging.getLogger(__name__)
 
 class AimMetricCollectorWatcher(MetricCollectionWatcher):
     """Watcher to collect metrics from the framework and save them to Aim"""
@@ -32,7 +31,7 @@ class AimMetricCollectorWatcher(MetricCollectionWatcher):
         self, notification: TopologyChangeNotification, origin: Watcher | None = None
     ) -> None:
         # self.run.track(Image(notification.topology.plot_topology()), name="topology")
-        logging.info("Topology change notification received")
+        logger.info("Topology change notification received")
 
     def _process_metrics(self, metric: MetricNotification) -> None:
         for metric_name, metric_value in metric.metrics.items():

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from abc import ABC, abstractmethod
 
 from ..common import (
@@ -12,6 +11,8 @@ from ..common import (
 )
 from ..operations import PullCommandRequest, ServerRequest
 
+import logging
+logger = logging.getLogger(__name__)
 
 class ClientInterface(ABC):
     def __init__(self, command_queue: list[dict], ping_interval: float = 1.0):
@@ -46,4 +47,4 @@ class ClientInterface(ABC):
         except ServerRequestError as e:
             return
         except UnauthorizedError as e:
-            logging.error("UnauthorizedError: %s", e)
+            logger.error("UnauthorizedError: %s", e)

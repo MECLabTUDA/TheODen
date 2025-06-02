@@ -1,4 +1,4 @@
-import logging
+
 
 import torch
 from tqdm import tqdm
@@ -6,6 +6,9 @@ from tqdm import tqdm
 from ....common import ExecutionResponse, Transferable
 from ....resources.data.dataset import SampleDataset
 from ..command import Command
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class InspectLabelDistributionCommand(Command, Transferable):
@@ -52,4 +55,4 @@ class InspectLabelDistributionCommand(Command, Transferable):
             )
 
         for c, v in enumerate(list(labels / torch.sum(labels))):
-            logging.info(f"Class {c + self.start_at}: {v:.2f}")
+            logger.info(f"Class {c + self.start_at}: {v:.2f}")

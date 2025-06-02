@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import signal
 
@@ -9,13 +8,14 @@ from theoden.topology.topology import Topology
 from ....common import ExecutionResponse, Transferable
 from .. import Command
 
+import logging
+logger = logging.getLogger(__name__)
 
 class PrintResourceKeysCommand(Command, Transferable):
     """Print all resource keys on the client"""
 
     def execute(self) -> ExecutionResponse | None:
-        logging.info("Resource keys:")
-        logging.info(json.dumps(self.client_rm.get_key_type_dict(), indent=3))
+        logger.info("Resource keys:\n" + json.dumps(self.client_rm.get_key_type_dict(), indent=3))
         return None
 
 

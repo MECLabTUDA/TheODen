@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import inspect
-import logging
 from dataclasses import dataclass
 from functools import partial
 from typing import Generic, Literal, Type, TypeVar, Union, get_args, get_origin
@@ -15,6 +14,8 @@ from .utils import hash_dict
 
 T = TypeVar("T")
 
+import logging
+logger = logging.getLogger(__name__)
 
 class Transferable:
     _original_init: callable
@@ -348,7 +349,7 @@ class Transferables(metaclass=SingletonMeta):
                 f"The key {cls.__name__} already exists and overwriting is not allowed."
             )
         elif cls.__name__ in self and self._allow_overwrite and not implements:
-            logging.warning(
+            logger.warning(
                 f"The key {cls.__name__} already exists and will be overwritten."
             )
 

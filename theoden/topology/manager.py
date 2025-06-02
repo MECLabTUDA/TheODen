@@ -8,6 +8,8 @@ from ..resources.resource import ResourceManager
 from ..security.operation_protection import OperationBlackList, OperationWhiteList
 from .topology import Topology
 
+import logging
+logger = logging.getLogger(__name__)
 
 class ActionThread(threading.Thread):
     def __init__(
@@ -149,9 +151,11 @@ class OperationManager(Transferable, is_base_type=True):
                 )
 
             except TooManyCommandsExecutingException as e:
+                logger.debug("Too many commands executing exception")
                 return None
 
             except NoCommandException as e:
+                #print(f"No command exception {e.message}")
                 command = None
 
             # If the open distribution returns a command, return it

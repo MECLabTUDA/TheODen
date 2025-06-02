@@ -1,6 +1,5 @@
 # import torch.multiprocessing as mp
 import asyncio
-import logging
 import ssl
 from multiprocessing import Event, Manager, Process
 
@@ -20,6 +19,8 @@ from ..operations import Command, ServerRequest
 from ..resources.resource import ResourceManager
 from ..security.operation_protection import OperationBlackList, OperationWhiteList
 
+import logging
+logger = logging.getLogger(__name__)
 
 class Client:
     def __init__(
@@ -168,7 +169,7 @@ class Client:
                                 f"Command {command.__name__} is not allowed"
                             )
 
-                logging.debug(f"Executing command {command.__class__.__name__}")
+                logger.info(f"Executing command {command.__class__.__name__}")
 
                 # Execute the command on the client
                 command.set_client(self)()
@@ -180,6 +181,7 @@ class Client:
                 continue
 
     def send_status_update(self, status_update: StatusUpdate) -> requests.Response:
+        logger.info(f"Sending status update: {status_update.__str__()}")
         try:
             return self.network_interface.send_status_update(status_update)
         except UnauthorizedError:
@@ -190,4 +192,5 @@ class Client:
             raise RuntimeError(f"Could not send status update: {e}")
 
     def send_server_request(self, request: "ServerRequest") -> requests.Response:
+        logger.debug(f"Sending server request: {request.__str__()}")
         return self.network_interface.send_server_request(request)

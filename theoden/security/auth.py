@@ -1,4 +1,3 @@
-import logging
 import urllib.parse
 from enum import Enum
 from uuid import uuid4
@@ -9,6 +8,8 @@ import yaml
 from ..common import UnauthorizedError
 from .hash import hash_value, verify_hash
 
+import logging
+logger = logging.getLogger(__name__)
 
 class UserRole(Enum):
     SERVER = "server"
@@ -42,7 +43,7 @@ class AuthenticationManager:
         # If auth_all_if_empty is True, then all users will be authenticated if the user dictionary is empty.
         # This is useful for testing and simulation purposes but should be set to False in production.
         if self.simulation:
-            logging.warning(
+            logger.warning(
                 "AuthenticationManager is in simulation mode. All users will be authenticated and created if they do not exist."
             )
 
@@ -91,7 +92,7 @@ class AuthenticationManager:
         if user:
             if verify_hash(password, user.password):
                 if role is None or user.role == role.value:
-                    logging.info(
+                    logger.info(
                         f"Authentication successful for user '{username}' with role '{user.role}'."
                     )
                     return user
@@ -226,11 +227,11 @@ class AuthenticationManager:
         )
 
         if response.status_code == 201:
-            logging.info(f"RabbitMQ user '{username}' created successfully.")
+            logger.info(f"RabbitMQ user '{username}' created successfully.")
         elif response.status_code == 204:
-            logging.info(f"RabbitMQ user '{username}' already exists.")
+            logger.info(f"RabbitMQ user '{username}' already exists.")
         else:
-            logging.error(
+            logger.error(
                 f"Failed to create RabbitMQ user '{username}'. Status code: {response.status_code}"
             )
         regex_pattern = f"{username}.*"
@@ -255,8 +256,8 @@ class AuthenticationManager:
         )
 
         if response.status_code == 201:
-            logging.info(f"RabbitMQ permissions for '{username}' set successfully.")
+            logger.info(f"RabbitMQ permissions for '{username}' set successfully.")
         else:
-            logging.error(
+            logger.error(
                 f"Failed to set RabbitMQ permissions for '{username}'. Status code: {response.status_code}"
             )

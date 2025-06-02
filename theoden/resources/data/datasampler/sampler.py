@@ -1,5 +1,4 @@
 import json
-import logging
 from collections import Counter
 from pathlib import Path
 
@@ -10,6 +9,8 @@ from torch.utils.data import BatchSampler, Sampler, WeightedRandomSampler
 from ....common import GlobalContext, Transferable
 from ..dataset import SampleDataset
 
+import logging
+logger = logging.getLogger(__name__)
 
 class DataSampler(Transferable, is_base_type=True):
     def __init__(
@@ -172,7 +173,7 @@ class MultiClassSampler(DataSampler, Transferable):
         # get weight per class
         weight_per_class = labels / sum_count
 
-        logging.debug("Dist:", weight_per_class)
+        logger.debug("Dist:", weight_per_class)
 
         # set sample weights to have uniform probability per class
         inverted = 1 / (weight_per_class + self.temperature)
@@ -185,7 +186,7 @@ class MultiClassSampler(DataSampler, Transferable):
 
         balanced = inverted / sum_inverted
 
-        logging.debug("Weights:", balanced)
+        logger.debug("Weights:", balanced)
 
         weights = []
 

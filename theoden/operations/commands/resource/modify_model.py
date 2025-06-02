@@ -1,7 +1,8 @@
-import logging
-
 from ....resources import TorchModel, WrappedTorchModel
 from .. import Command
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class SelectTorchEncoderOfModelCommand(Command):
@@ -29,7 +30,7 @@ class SelectTorchEncoderOfModelCommand(Command):
         try:
             encoder_model = TorchModel().set_model(base_model.encoder)
         except Exception as e:
-            logging.error(
+            logger.error(
                 "Error when loading the encoder. Ensure the base model ha a property encoder."
             )
             raise e
