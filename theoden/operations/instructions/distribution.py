@@ -334,6 +334,7 @@ class DistributionStatusTable(ObservableDict[str, ObservableDict[str, CommandDis
 
     def _on_change(self, action, key, value):
         logger.info("DistributionStatusTable updated to\n" + self.__repr__())
+        print(self.__repr__())
 
     def __setitem__(self, key, value):
         assert isinstance(value, (dict, type(None))), f"Value must be a dict or None, got {type(value)}"

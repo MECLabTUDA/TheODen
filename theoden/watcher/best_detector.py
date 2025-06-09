@@ -38,6 +38,7 @@ class NewBestDetectorWatcher(MetricCollectionWatcher):
             return
 
         if self.metric not in metric.metrics:
+            logger.warning(f"Metric '{self.metric}' not found in notification. Available metrics: {list(metric.metrics.keys())}")
             return
 
         is_new_best = False

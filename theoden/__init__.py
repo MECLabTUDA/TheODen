@@ -18,7 +18,7 @@ from . import watcher as watcher
 
 from .start import start_client, start_server, start_storage
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 print(
     f""" _____  _             ___   ____               

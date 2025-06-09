@@ -84,15 +84,21 @@ class SaveEveryNRoundWatcher(MetricCollectionWatcher):
         save_folder: str | None = None,
         model_key: str = "model",
     ) -> None:
-        super().__init__(None)
+        super().__init__(
+            notification_of_interest={
+                InitializationNotification: self._set_run_name,
+            })
         self.n_round = n_round
         self.split = split
-        self.save_folder = (
-            save_folder
-            if save_folder is not None
-            else GlobalContext()["model_save_folder"]
-        )
+        self.save_folder = save_folder
         self.model_key = model_key
+        self.run_name = ""
+
+    def _set_run_name(
+        self, notification: InitializationNotification, origin: Watcher | None = None
+    ) -> None:
+        self.run_name = notification.run_name
+        self.save_folder = self.save_folder or GlobalContext()["model_save_folder"]
 
     def _handle_metric(
         self, notification: MetricNotification, origin: Watcher | None = None
@@ -100,10 +106,15 @@ class SaveEveryNRoundWatcher(MetricCollectionWatcher):
         if notification.comm_round % self.n_round == 0:
             cm = self.base_topology.resources.checkpoint_manager
 
-            path = (
-                Path(self.save_folder)
-                / f"{self.model_key}_round_{notification.comm_round}.pt"
-            )
+            if self.run_name:
+                path = (
+                    Path(self.save_folder)
+                    / self.run_name
+                    / f"{self.model_key}_round_{notification.comm_round}.pt"
+                )
+            else:
+                path = Path(self.save_folder) / f"{self.model_key}_round_{notification.comm_round}.pt"
+
 
             logger.info(
                 f"Saving model '{self.model_key}' at round {notification.comm_round} to '{path.as_posix()}'"
