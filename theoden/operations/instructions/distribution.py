@@ -19,6 +19,7 @@ from .error import DistributionErrorHandler
 from .instruction import Instruction, InstructionStatus
 from .selection import AllSelector, Selector
 
+from datetime import datetime
 import logging
 logger = logging.getLogger(__name__)
 
@@ -334,6 +335,8 @@ class DistributionStatusTable(ObservableDict[str, ObservableDict[str, CommandDis
 
     def _on_change(self, action, key, value):
         logger.info("DistributionStatusTable updated to\n" + self.__repr__())
+        datetime_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"DistributionStatusTable updated at {datetime_str}")
         print(self.__repr__())
 
     def __setitem__(self, key, value):

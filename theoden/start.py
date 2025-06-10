@@ -1,4 +1,3 @@
-import logging
 import ssl
 from getpass import getpass
 
@@ -15,6 +14,8 @@ from .topology.client import Client
 from .topology.server import Server
 from .watcher import Watcher
 
+import logging
+logger = logging.getLogger(__name__)
 
 def start_client(
     communication_address: str = "localhost",
@@ -185,6 +186,11 @@ def start_server(
     )
 
     if not e.rabbitmq:
+        if ssl_context is not None:
+            logger.warning("SSL context is provided, but uvicorn will not use")
+        if https:
+            logger.warning("HTTPS is enabled, but uvicorn will not use it")
+
         uvicorn.run(
             e.communication_interface,
             host=communication_address or "localhost",
