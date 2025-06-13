@@ -93,12 +93,23 @@ def start_storage(
         ssl_keyfile (str, optional): The path to the SSL key file. Defaults to None.
         ssl_certfile (str, optional): The path to the SSL certificate file. Defaults to None.
     """
+    from uvicorn.config import LOGGING_CONFIG
+
+    logging_config = LOGGING_CONFIG.copy()
+
+    logging_config["formatters"]["default"]["fmt"] = "%(asctime)s %(levelprefix)s %(message)s"
+    logging_config["formatters"]["access"]["fmt"] = '%(asctime)s %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
+    logging_config["formatters"]["default"]["datefmt"] = '%Y-%m-%d %H:%M:%S'
+    logging_config["formatters"]["access"]["datefmt"] = '%Y-%m-%d %H:%M:%S'
+
+
     uvicorn.run(
         FileStorage(node_config=config),
         host=host,
         port=port,
         ssl_certfile=ssl_certfile,
         ssl_keyfile=ssl_keyfile,
+        log_config=logging_config
     )
 
 

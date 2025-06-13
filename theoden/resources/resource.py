@@ -152,7 +152,7 @@ class ResourceManager(OrderedDict):
         except KeyError:
             # only raise error if default is not ..., otherwise return default
             if default is ...:
-                raise KeyError(f"Resource with key `{key}` does not exist")
+                raise KeyError(f"Resource with key `{key}` does not exist. Only has the following keys: {list(self.keys())}")
             else:
                 return default
 

@@ -130,11 +130,15 @@ class OperationManager(Transferable, is_base_type=True):
             if not condition.resolved(
                 topology=topology, resource_manager=resource_manager
             ):
+                logger.debug(
+                    f"Constant condition {condition.name} is not resolved, returning None"
+                )
                 return None
 
         """Handle Action Thread"""
         if self.action_thread is not None:
             if self.action_thread.is_alive():
+                logger.debug("Action thread is still running, returning None")
                 return None
             else:
                 self.action_thread = None
@@ -143,6 +147,7 @@ class OperationManager(Transferable, is_base_type=True):
         if self.open_distribution is not None:
             # check if there is an uncompleted command for the open distribution
             if self.open_distribution.client_started_but_unfinished(client_name):
+                logger.debug("Client has an unfinished command, returning None")
                 return None
 
             try:

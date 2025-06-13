@@ -334,10 +334,11 @@ class DistributionStatusTable(ObservableDict[str, ObservableDict[str, CommandDis
         return json.dumps(vis, indent=3, ensure_ascii=False)
 
     def _on_change(self, action, key, value):
-        logger.info("DistributionStatusTable updated to\n" + self.__repr__())
-        datetime_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"DistributionStatusTable updated at {datetime_str}")
-        print(self.__repr__())
+        pass
+        #logger.info("DistributionStatusTable updated to\n" + self.__repr__())
+        #datetime_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        #print(f"DistributionStatusTable updated at {datetime_str}")
+        #print(self.__repr__())
 
     def __setitem__(self, key, value):
         assert isinstance(value, (dict, type(None))), f"Value must be a dict or None, got {type(value)}"
@@ -400,6 +401,24 @@ class Distribution(Instruction, Transferable, is_base_type=True):
         )
 
         self.dist_table: DistributionStatusTable = DistributionStatusTable()
+        dist_table_on_change = self.dist_table._on_change
+        def self_dist_table_on_change(action, key, value):
+            dist_table_on_change(action, key, value)
+            datetime_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print_str = f"DistributionStatusTable updated at {datetime_str}"
+            #print(f"DistributionStatusTable updated at {datetime_str}")
+            for client_name in self.dist_table.keys():
+                if self.dist_table[client_name] is None:
+                    #print(f"{client_name}\tNone")
+                    print_str += f"\n{client_name}\tNone"
+                    continue
+                for entry in self.dist_table[client_name]:
+                    #print(f"{client_name}\t{self.get_command_by_uuid(entry).name}\t{self.dist_table[client_name][entry].name}\t\t{entry}")
+                    print_str += f"\n{client_name}\t{self.get_command_by_uuid(entry).name}\t{self.dist_table[client_name][entry].name}\t\t{entry}"
+            print("\n" + print_str)
+            logger.info(print_str)
+        self.dist_table._on_change = self_dist_table_on_change
+
 
         self.uuid: str | None = None
         self.on_init_hooks: list[callable] = []

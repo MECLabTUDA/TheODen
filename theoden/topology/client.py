@@ -185,10 +185,13 @@ class Client:
         try:
             return self.network_interface.send_status_update(status_update)
         except UnauthorizedError:
+            logger.error(f"Unauthorized access: Could not authenticate with server {e}")
             raise RuntimeError("Could not authenticate with server")
         except ServerRequestError as e:
+            logger.error(f"Could not send status update: {e}")
             raise RuntimeError(f"Could not send status update: {e}")
         except Exception as e:
+            logger.error(f"Could not send status update: {e}")
             raise RuntimeError(f"Could not send status update: {e}")
 
     def send_server_request(self, request: "ServerRequest") -> requests.Response:

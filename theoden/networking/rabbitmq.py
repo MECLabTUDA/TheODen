@@ -57,7 +57,7 @@ class ServerToMQInterface:
                 host=self.host,
                 port=self.port,
                 credentials=pika.PlainCredentials(username=username, password=password),
-                heartbeat=0,
+                heartbeat=10,
                 ssl_options=pika.SSLOptions(ssl_context, server_hostname=self.host)
                 if ssl_context
                 else None,
@@ -231,7 +231,7 @@ class ClientToMQInterface(ClientInterface):
                 credentials=pika.PlainCredentials(
                     username=self.username, password=self.password
                 ),
-                heartbeat=0,
+                heartbeat=10,
                 ssl_options=pika.SSLOptions(self.ssl_context, server_hostname=self.host)
                 if self.ssl_context
                 else None,
