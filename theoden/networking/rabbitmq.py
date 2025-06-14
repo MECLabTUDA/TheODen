@@ -211,8 +211,8 @@ class ClientToMQInterface(ClientInterface):
         self.server_queue_name = f"{self.username}_server_queue"
 
         # as two threads can send requests simultaneously, we need two channels (one for each thread)
-        self.request_channel = self._build_connection(with_consume=True)
-        self.execute_channel = self._build_connection()
+        self.request_channel = self._build_connection(with_consume=True)    # ask for tasks and get tasks
+        self.execute_channel = self._build_connection()                     # send status updates
 
     def _build_connection(self, with_consume: bool = False) -> pika.channel.Channel:
         """Builds a connection to the server.
@@ -231,7 +231,7 @@ class ClientToMQInterface(ClientInterface):
                 credentials=pika.PlainCredentials(
                     username=self.username, password=self.password
                 ),
-                heartbeat=10,
+                heartbeat=10 if not with_consume else 0, #this only works status updates queue. The other one sends from another thread
                 ssl_options=pika.SSLOptions(self.ssl_context, server_hostname=self.host)
                 if self.ssl_context
                 else None,
