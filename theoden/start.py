@@ -94,8 +94,9 @@ def start_storage(
         ssl_certfile (str, optional): The path to the SSL certificate file. Defaults to None.
     """
     from uvicorn.config import LOGGING_CONFIG
+    import copy
 
-    logging_config = LOGGING_CONFIG.copy()
+    logging_config = copy.deepcopy(LOGGING_CONFIG)
 
     logging_config["formatters"]["default"]["fmt"] = "%(asctime)s %(levelprefix)s %(message)s"
     logging_config["formatters"]["access"]["fmt"] = '%(asctime)s %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
