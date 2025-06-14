@@ -15,6 +15,8 @@ from ..common import UnauthorizedError
 from ..security.auth import AuthenticationManager, UserRole
 from ..security.token import create_access_token, decode_token
 
+from .middleware import SecurityHeadersMiddleware
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,7 @@ class FileStorage(FastAPI):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.add_middleware(SecurityHeadersMiddleware)
         self.file_storage: dict[str, UploadedItem] = {}
         self.persistent = persistent
 

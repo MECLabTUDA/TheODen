@@ -229,7 +229,7 @@ class AuthenticationManager:
         if response.status_code == 201:
             logger.info(f"RabbitMQ user '{username}' created successfully.")
         elif response.status_code == 204:
-            logger.info(f"RabbitMQ user '{username}' already exists.")
+            logger.info(f"RabbitMQ user '{username}' already existed; password/tags updated.")
         else:
             logger.error(
                 f"Failed to create RabbitMQ user '{username}'. Status code: {response.status_code}"
@@ -257,6 +257,8 @@ class AuthenticationManager:
 
         if response.status_code == 201:
             logger.info(f"RabbitMQ permissions for '{username}' set successfully.")
+        elif response.status_code == 204:
+            logger.info(f"RabbitMQ user '{username}' already existed; password/tags updated.")
         else:
             logger.error(
                 f"Failed to set RabbitMQ permissions for '{username}'. Status code: {response.status_code}"
