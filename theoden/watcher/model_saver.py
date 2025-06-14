@@ -122,9 +122,19 @@ class SaveEveryNRoundWatcher(MetricCollectionWatcher):
 
             path.parent.mkdir(parents=True, exist_ok=True)
 
-            cm.copy_checkpoint(
+
+            
+            cm.get_checkpoint(
                 resource_type="model",
                 resource_key=self.model_key,
-                checkpoint_key="__global__",
-                new_checkpoint_key=f"{self.model_key}_round_{notification.comm_round}",
+                checkpoint_key="__global__"
             ).save(path=path)
+
+            # Why would you want to copy the checkpoint?
+            # This would flood the checkpoint manager and hence the GPU memory.
+            #cm.copy_checkpoint(
+            #    resource_type="model",
+            #    resource_key=self.model_key,
+            #    checkpoint_key="__global__",
+            #    new_checkpoint_key=f"{self.model_key}_round_{notification.comm_round}",
+            #).save(path=path)

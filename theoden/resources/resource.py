@@ -340,3 +340,15 @@ class ResourceManager(OrderedDict):
         if fs is None:
             raise ValueError("No file storage interface found")
         return fs
+
+
+    def __str__(self, indent = 0) -> str:
+        ret_str = ""
+        if indent == 0:
+            ret_str += "ResourceManager:"
+        for key, value in self.items():
+            ret_str += ("\t" * indent + f"{key}\n")
+            if isinstance(value, ResourceManager):
+                ret_str += value.__str__(indent + 1)
+
+        return ret_str
